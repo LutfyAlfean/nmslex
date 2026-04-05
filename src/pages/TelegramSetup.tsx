@@ -287,6 +287,34 @@ export default function TelegramSetup() {
           </div>
         </div>
 
+        {/* Auto Alert Simulation */}
+        <div className="glass rounded-xl p-5">
+          <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-warning" /> Simulasi Auto Alert
+          </h3>
+          <p className="text-[12px] text-muted-foreground mb-3">
+            Test auto-alert dengan skenario server metrics melebihi threshold:
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              { id: "cpu_critical", label: "🔴 CPU 95.2%", desc: "web-server-01" },
+              { id: "ram_critical", label: "🔴 RAM 92.8%", desc: "db-server-01" },
+              { id: "all_critical", label: "🚨 All Critical", desc: "app-server-01" },
+              { id: "disk_high", label: "🟠 Disk 87.5%", desc: "backup-server" },
+            ].map(s => (
+              <button
+                key={s.id}
+                onClick={() => handleAutoAlert(s.id)}
+                disabled={autoAlertTesting}
+                className="p-3 rounded-lg bg-secondary/50 hover:bg-secondary/80 border border-border/30 text-left transition-colors disabled:opacity-50"
+              >
+                <span className="text-xs font-medium text-foreground block">{s.label}</span>
+                <span className="text-[10px] text-muted-foreground">{s.desc}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* API Reference */}
         <div className="glass rounded-xl p-5">
           <h3 className="text-sm font-semibold text-foreground mb-3">📖 API Reference</h3>
