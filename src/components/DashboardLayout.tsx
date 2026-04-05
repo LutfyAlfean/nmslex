@@ -123,6 +123,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <main className="flex-1 overflow-auto p-5">
           {children}
         </main>
+
+        {/* Footer */}
+        <footer className="h-8 flex items-center justify-center border-t border-border/30 bg-card/20">
+          <p className="text-[10px] text-muted-foreground">© 2026 by Muhammad Lutfi Alfian. All rights reserved.</p>
+        </footer>
       </div>
     </div>
   );
