@@ -521,6 +521,30 @@ chmod +x ${NMSLEX_DIR}/scripts/nmslex-agent-install.sh
 
 log_ok "Agent install script created at ${NMSLEX_DIR}/scripts/nmslex-agent-install.sh"
 
+# --- Generate Admin Password ---
+ADMIN_EMAIL="adminlex@nmslex.com"
+ADMIN_PASSWORD=$(openssl rand -base64 16 | tr -d '=/+' | head -c 16)
+
+log_info "Creating default admin account..."
+echo ""
+echo -e "${YELLOW}╔══════════════════════════════════════════╗${NC}"
+echo -e "${YELLOW}║     DEFAULT ADMIN CREDENTIALS            ║${NC}"
+echo -e "${YELLOW}╠══════════════════════════════════════════╣${NC}"
+echo -e "${YELLOW}║  Email:    ${CYAN}${ADMIN_EMAIL}${YELLOW}       ║${NC}"
+echo -e "${YELLOW}║  Password: ${CYAN}${ADMIN_PASSWORD}${YELLOW}               ║${NC}"
+echo -e "${YELLOW}╠══════════════════════════════════════════╣${NC}"
+echo -e "${YELLOW}║  ⚠️  SIMPAN PASSWORD INI!                ║${NC}"
+echo -e "${YELLOW}║  Tidak bisa ditampilkan lagi.            ║${NC}"
+echo -e "${YELLOW}║  Reset: Dashboard > Login > Lupa Password║${NC}"
+echo -e "${YELLOW}╚══════════════════════════════════════════╝${NC}"
+echo ""
+
+# Save credentials to secure file
+echo "ADMIN_EMAIL=${ADMIN_EMAIL}" > ${NMSLEX_CONF}/admin.credentials
+echo "ADMIN_PASSWORD=${ADMIN_PASSWORD}" >> ${NMSLEX_CONF}/admin.credentials
+chmod 600 ${NMSLEX_CONF}/admin.credentials
+log_ok "Credentials saved to ${NMSLEX_CONF}/admin.credentials (root only)"
+
 # --- Done ---
 echo ""
 echo -e "${GREEN}╔══════════════════════════════════════════╗${NC}"
@@ -537,4 +561,11 @@ echo "  sudo systemctl status nmslex-manager"
 echo "  sudo systemctl status nmslex-indexer"
 echo ""
 echo "Agent script: ${NMSLEX_DIR}/scripts/nmslex-agent-install.sh"
+echo ""
+echo "Reset Password:"
+echo "  1. Buka http://<IP>:${NMSLEX_PORT}/login"
+echo "  2. Klik 'Lupa password?'"
+echo "  3. Masukkan email: ${ADMIN_EMAIL}"
+echo "  4. Cek inbox untuk link reset"
+echo "  5. Atau lihat: ${NMSLEX_CONF}/admin.credentials"
 echo ""
