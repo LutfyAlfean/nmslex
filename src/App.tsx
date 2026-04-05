@@ -25,7 +25,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
-          <img src="/nmslex-logo.png" alt="NMSLEX" className="w-16 h-16 animate-pulse" />
+          <img src="/logo.png" alt="NMSLEX" className="w-16 h-16 animate-pulse" />
           <p className="text-muted-foreground text-sm">Loading...</p>
         </div>
       </div>
