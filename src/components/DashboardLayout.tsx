@@ -28,6 +28,7 @@ const navItems = [
   { path: "/topology", label: "Topology", icon: Globe },
   { path: "/server", label: "Server", icon: Monitor },
   { path: "/reporting", label: "Reporting", icon: FileBarChart },
+  { path: "/telegram-setup", label: "Telegram", icon: MessageCircle },
   { path: "/settings", label: "Settings", icon: Settings },
 ];
 
