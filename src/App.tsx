@@ -12,6 +12,7 @@ import AgentDetail from "./pages/AgentDetail";
 import Network from "./pages/Network";
 import SettingsPage from "./pages/SettingsPage";
 import ServerMonitor from "./pages/ServerMonitor";
+import Topology from "./pages/Topology";
 import Login from "./pages/Login";
 import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
