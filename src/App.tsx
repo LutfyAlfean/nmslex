@@ -51,6 +51,7 @@ const AppRoutes = () => (
     <Route path="/server" element={<ProtectedRoute><ServerMonitor /></ProtectedRoute>} />
     <Route path="/topology" element={<ProtectedRoute><Topology /></ProtectedRoute>} />
     <Route path="/reporting" element={<ProtectedRoute><Reporting /></ProtectedRoute>} />
+    <Route path="/telegram-setup" element={<ProtectedRoute><TelegramSetup /></ProtectedRoute>} />
     <Route path="*" element={<NotFound />} />
   </Routes>
 );
