@@ -40,14 +40,16 @@ const steps = [
     ],
   },
   {
-    title: "4. Notifikasi Otomatis",
+    title: "4. Auto Alert (CPU/RAM/Disk)",
     icon: AlertTriangle,
     content: [
-      "Setelah koneksi berhasil, NMSLEX akan mengirim alert otomatis:",
-      "🔴 Critical: Server down, intrusion detected",
-      "🟠 High: High CPU/RAM usage, service degraded",
-      "🟡 Medium: Unusual traffic pattern",
-      "🔵 Low: Informational updates",
+      "NMSLEX secara otomatis mengirim alert ke Telegram ketika:",
+      "🔴 CPU > 90% — Critical Alert",
+      "🔴 RAM > 90% — Critical Alert",
+      "🔴 Disk > 90% — Critical Alert",
+      "🟠 CPU/RAM > 80% — High Alert",
+      "🟠 Disk > 85% — High Alert",
+      "Alert dikirim realtime saat threshold terlampaui",
     ],
   },
 ];
@@ -58,6 +60,7 @@ export default function TelegramSetup() {
   const [testResult, setTestResult] = useState<"success" | "error" | null>(null);
   const [sending, setSending] = useState(false);
   const [customMessage, setCustomMessage] = useState("");
+  const [autoAlertTesting, setAutoAlertTesting] = useState(false);
 
   const handleTest = async () => {
     if (!chatId.trim()) {
@@ -131,6 +134,33 @@ export default function TelegramSetup() {
       }
     } catch (err: any) {
       toast.error(`Gagal: ${err.message}`);
+    }
+  };
+
+  const handleAutoAlert = async (scenario: string) => {
+    if (!chatId.trim()) {
+      toast.error("Masukkan Chat ID terlebih dahulu");
+      return;
+    }
+    setAutoAlertTesting(true);
+    const scenarios: Record<string, any> = {
+      cpu_critical: { cpu: 95.2, ram: 45, disk: 60, agent_name: "web-server-01" },
+      ram_critical: { cpu: 30, ram: 92.8, disk: 55, agent_name: "db-server-01" },
+      all_critical: { cpu: 96.5, ram: 94.1, disk: 91.3, agent_name: "app-server-01" },
+      disk_high: { cpu: 40, ram: 50, disk: 87.5, agent_name: "backup-server" },
+    };
+    try {
+      const { data, error } = await supabase.functions.invoke("telegram-bot", {
+        body: { action: "auto_alert", chat_id: chatId.trim(), metrics: scenarios[scenario] },
+      });
+      if (error) throw error;
+      if (data?.success) {
+        toast.success(`Auto alert sent! (${data.alerts_sent} alerts)`);
+      }
+    } catch (err: any) {
+      toast.error(`Gagal: ${err.message}`);
+    } finally {
+      setAutoAlertTesting(false);
     }
   };
 
@@ -254,6 +284,34 @@ export default function TelegramSetup() {
                 ))}
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Auto Alert Simulation */}
+        <div className="glass rounded-xl p-5">
+          <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-warning" /> Simulasi Auto Alert
+          </h3>
+          <p className="text-[12px] text-muted-foreground mb-3">
+            Test auto-alert dengan skenario server metrics melebihi threshold:
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              { id: "cpu_critical", label: "🔴 CPU 95.2%", desc: "web-server-01" },
+              { id: "ram_critical", label: "🔴 RAM 92.8%", desc: "db-server-01" },
+              { id: "all_critical", label: "🚨 All Critical", desc: "app-server-01" },
+              { id: "disk_high", label: "🟠 Disk 87.5%", desc: "backup-server" },
+            ].map(s => (
+              <button
+                key={s.id}
+                onClick={() => handleAutoAlert(s.id)}
+                disabled={autoAlertTesting}
+                className="p-3 rounded-lg bg-secondary/50 hover:bg-secondary/80 border border-border/30 text-left transition-colors disabled:opacity-50"
+              >
+                <span className="text-xs font-medium text-foreground block">{s.label}</span>
+                <span className="text-[10px] text-muted-foreground">{s.desc}</span>
+              </button>
+            ))}
           </div>
         </div>
 

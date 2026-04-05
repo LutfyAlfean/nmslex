@@ -1,7 +1,7 @@
 # NMSLEX - Network Management System
 
 <p align="center">
-  <img src="public/nmslex-logo.png" alt="NMSLEX Logo" width="200" />
+  <img src="public/logo.png" alt="NMSLEX Logo" width="200" />
 </p>
 
 <p align="center">
@@ -138,6 +138,9 @@ Total minimum:  58 vCPU | 82 GB RAM | 1 TB disk
 | 🖥️ **Agent Management** | Kelola semua VM/host yang dimonitor + detail metrics |
 | 🌐 **Network Analysis** | Analisis traffic, protocol distribution, top talkers |
 | 🔐 **Authentication** | Login dengan auto-generated credentials saat deploy |
+| 📱 **Telegram Bot** | Notifikasi realtime via Telegram untuk alerts critical |
+| 👥 **User Management** | Kelola akun admin, operator, dan viewer |
+| 📄 **PDF Reporting** | Export laporan profesional dalam format PDF |
 | ⚙️ **Konfigurasi Terpusat** | Pengaturan Suricata, Elasticsearch, dan dashboard dari satu tempat |
 
 ## Arsitektur
@@ -234,4 +237,8 @@ MIT License — Silakan digunakan dan dimodifikasi sesuai kebutuhan.
 
 <p align="center">
   <strong>NMSLEX</strong> — Protecting your network, one packet at a time. 🐼
+</p>
+
+<p align="center">
+  © 2026 by Muhammad Lutfi Alfian. All rights reserved.
 </p>
