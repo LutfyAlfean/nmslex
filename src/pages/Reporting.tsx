@@ -64,6 +64,102 @@ export default function Reporting() {
     URL.revokeObjectURL(url);
   };
 
+  const handleExportPDF = () => {
+    const printContent = `
+<!DOCTYPE html>
+<html><head><title>NMSLEX ${period === "weekly" ? "Weekly" : "Monthly"} Report</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; color: #1a1a2e; padding: 40px; background: #fff; }
+  .header { text-align: center; margin-bottom: 30px; border-bottom: 3px solid #14b8a6; padding-bottom: 20px; }
+  .header h1 { font-size: 28px; color: #0d9488; margin-bottom: 5px; }
+  .header p { color: #64748b; font-size: 14px; }
+  .header .logo { font-size: 36px; font-weight: 900; color: #0d9488; letter-spacing: 2px; }
+  .section { margin-bottom: 25px; }
+  .section h2 { font-size: 16px; color: #0d9488; margin-bottom: 10px; border-left: 4px solid #0d9488; padding-left: 10px; }
+  .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 25px; }
+  .stat-card { background: #f0fdfa; border: 1px solid #99f6e4; border-radius: 8px; padding: 15px; text-align: center; }
+  .stat-card .value { font-size: 24px; font-weight: 700; color: #0d9488; }
+  .stat-card .label { font-size: 11px; color: #64748b; margin-top: 4px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th { background: #0d9488; color: #fff; padding: 10px 12px; text-align: left; font-weight: 600; }
+  td { padding: 8px 12px; border-bottom: 1px solid #e2e8f0; }
+  tr:nth-child(even) { background: #f8fafc; }
+  .status-active { color: #16a34a; font-weight: 600; }
+  .status-disconnected { color: #dc2626; font-weight: 600; }
+  .status-pending { color: #f59e0b; font-weight: 600; }
+  .uptime-bar { height: 8px; border-radius: 4px; background: #e2e8f0; }
+  .uptime-fill { height: 8px; border-radius: 4px; }
+  .footer { text-align: center; margin-top: 40px; padding-top: 20px; border-top: 2px solid #e2e8f0; color: #94a3b8; font-size: 11px; }
+  .alert-summary { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .alert-card { padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0; }
+  @media print { body { padding: 20px; } }
+</style></head><body>
+<div class="header">
+  <div class="logo">🐼 NMSLEX</div>
+  <h1>Network Management Report</h1>
+  <p>${period === "weekly" ? "Weekly" : "Monthly"} Report — Generated: ${new Date().toLocaleString("id-ID", { timeZone: "Asia/Jakarta" })}</p>
+</div>
+
+<div class="stats-grid">
+  ${summaryStats.map(s => `<div class="stat-card"><div class="value">${s.value}</div><div class="label">${s.label} (${s.change})</div></div>`).join("")}
+</div>
+
+<div class="section">
+  <h2>Alert Summary (${period === "weekly" ? "7 Days" : "4 Weeks"})</h2>
+  <div class="alert-summary">
+    ${period === "weekly" ? `
+      <div class="alert-card"><strong>Critical Alerts:</strong> ${weeklyAlerts.reduce((a, b) => a + b.critical, 0)}</div>
+      <div class="alert-card"><strong>High Alerts:</strong> ${weeklyAlerts.reduce((a, b) => a + b.high, 0)}</div>
+      <div class="alert-card"><strong>Medium Alerts:</strong> ${weeklyAlerts.reduce((a, b) => a + b.medium, 0)}</div>
+      <div class="alert-card"><strong>Low Alerts:</strong> ${weeklyAlerts.reduce((a, b) => a + b.low, 0)}</div>
+    ` : `
+      <div class="alert-card"><strong>Total Inbound:</strong> ${monthlyTraffic.reduce((a, b) => a + b.inbound, 0)} GB</div>
+      <div class="alert-card"><strong>Total Outbound:</strong> ${monthlyTraffic.reduce((a, b) => a + b.outbound, 0)} GB</div>
+      <div class="alert-card"><strong>Total Blocked:</strong> ${monthlyTraffic.reduce((a, b) => a + b.blocked, 0)}</div>
+      <div class="alert-card"><strong>Categories:</strong> ${alertCategories.length} types</div>
+    `}
+  </div>
+</div>
+
+<div class="section">
+  <h2>Alert Categories</h2>
+  <table>
+    <tr><th>Category</th><th>Count</th><th>Percentage</th></tr>
+    ${alertCategories.map(c => `<tr><td>${c.name}</td><td>${c.value}</td><td>${c.value}%</td></tr>`).join("")}
+  </table>
+</div>
+
+<div class="section">
+  <h2>Agent Performance</h2>
+  <table>
+    <tr><th>Agent</th><th>Status</th><th>Uptime</th><th>Alerts</th></tr>
+    ${agentUptime.map(a => `<tr>
+      <td>${a.name}</td>
+      <td class="status-${a.status}">${a.status.toUpperCase()}</td>
+      <td>${a.uptime}%</td>
+      <td>${a.alerts}</td>
+    </tr>`).join("")}
+  </table>
+</div>
+
+<div class="footer">
+  <p>© 2026 by Muhammad Lutfi Alfian. All rights reserved.</p>
+  <p>NMSLEX — Protecting your network, one packet at a time. 🐼</p>
+</div>
+</body></html>`;
+
+    const printWindow = window.open("", "_blank");
+    if (printWindow) {
+      printWindow.document.write(printContent);
+      printWindow.document.close();
+      printWindow.onload = () => {
+        printWindow.print();
+      };
+      toast.success("PDF report siap dicetak/disimpan");
+    }
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-5">
