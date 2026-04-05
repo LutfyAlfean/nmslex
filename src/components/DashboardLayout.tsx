@@ -30,6 +30,7 @@ const navItems = [
   { path: "/server", label: "Server", icon: Monitor },
   { path: "/reporting", label: "Reporting", icon: FileBarChart },
   { path: "/telegram-setup", label: "Telegram", icon: MessageCircle },
+  { path: "/users", label: "Users", icon: Users },
   { path: "/settings", label: "Settings", icon: Settings },
 ];
 
