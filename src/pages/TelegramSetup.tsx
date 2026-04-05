@@ -60,6 +60,7 @@ export default function TelegramSetup() {
   const [testResult, setTestResult] = useState<"success" | "error" | null>(null);
   const [sending, setSending] = useState(false);
   const [customMessage, setCustomMessage] = useState("");
+  const [autoAlertTesting, setAutoAlertTesting] = useState(false);
 
   const handleTest = async () => {
     if (!chatId.trim()) {
