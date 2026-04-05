@@ -14,6 +14,7 @@ import {
   LogOut,
   Monitor,
   Globe,
+  FileBarChart,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
