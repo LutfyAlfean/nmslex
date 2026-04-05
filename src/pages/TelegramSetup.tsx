@@ -137,6 +137,33 @@ export default function TelegramSetup() {
     }
   };
 
+  const handleAutoAlert = async (scenario: string) => {
+    if (!chatId.trim()) {
+      toast.error("Masukkan Chat ID terlebih dahulu");
+      return;
+    }
+    setAutoAlertTesting(true);
+    const scenarios: Record<string, any> = {
+      cpu_critical: { cpu: 95.2, ram: 45, disk: 60, agent_name: "web-server-01" },
+      ram_critical: { cpu: 30, ram: 92.8, disk: 55, agent_name: "db-server-01" },
+      all_critical: { cpu: 96.5, ram: 94.1, disk: 91.3, agent_name: "app-server-01" },
+      disk_high: { cpu: 40, ram: 50, disk: 87.5, agent_name: "backup-server" },
+    };
+    try {
+      const { data, error } = await supabase.functions.invoke("telegram-bot", {
+        body: { action: "auto_alert", chat_id: chatId.trim(), metrics: scenarios[scenario] },
+      });
+      if (error) throw error;
+      if (data?.success) {
+        toast.success(`Auto alert sent! (${data.alerts_sent} alerts)`);
+      }
+    } catch (err: any) {
+      toast.error(`Gagal: ${err.message}`);
+    } finally {
+      setAutoAlertTesting(false);
+    }
+  };
+
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     toast.success("Copied to clipboard!");
