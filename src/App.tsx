@@ -14,6 +14,7 @@ import SettingsPage from "./pages/SettingsPage";
 import ServerMonitor from "./pages/ServerMonitor";
 import Topology from "./pages/Topology";
 import Reporting from "./pages/Reporting";
+import TelegramSetup from "./pages/TelegramSetup";
 import Login from "./pages/Login";
 import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
