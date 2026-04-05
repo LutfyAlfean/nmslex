@@ -52,7 +52,7 @@ export default function Login() {
         {/* Logo */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-card border border-border/50 mb-4 overflow-hidden">
-            <img src="/nmslex-logo.png" alt="NMSLEX" className="w-16 h-16" />
+            <img src="/logo.png" alt="NMSLEX" className="w-16 h-16 object-contain" />
           </div>
           <h1 className="text-3xl font-bold text-gradient">NMSLEX</h1>
           <p className="text-muted-foreground text-sm mt-1">Network Management System</p>

@@ -43,7 +43,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       >
         {/* Logo */}
         <div className="flex items-center gap-3 px-4 h-14 border-b border-border/30">
-          <img src="/nmslex-logo.png" alt="NMSLEX" className="w-8 h-8 rounded-lg flex-shrink-0" />
+          <img src="/logo.png" alt="NMSLEX" className="w-8 h-8 rounded-lg flex-shrink-0" />
           {sidebarOpen && (
             <span className="text-base font-bold text-gradient truncate">NMSLEX</span>
           )}
