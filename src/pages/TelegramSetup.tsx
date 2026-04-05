@@ -40,14 +40,16 @@ const steps = [
     ],
   },
   {
-    title: "4. Notifikasi Otomatis",
+    title: "4. Auto Alert (CPU/RAM/Disk)",
     icon: AlertTriangle,
     content: [
-      "Setelah koneksi berhasil, NMSLEX akan mengirim alert otomatis:",
-      "🔴 Critical: Server down, intrusion detected",
-      "🟠 High: High CPU/RAM usage, service degraded",
-      "🟡 Medium: Unusual traffic pattern",
-      "🔵 Low: Informational updates",
+      "NMSLEX secara otomatis mengirim alert ke Telegram ketika:",
+      "🔴 CPU > 90% — Critical Alert",
+      "🔴 RAM > 90% — Critical Alert",
+      "🔴 Disk > 90% — Critical Alert",
+      "🟠 CPU/RAM > 80% — High Alert",
+      "🟠 Disk > 85% — High Alert",
+      "Alert dikirim realtime saat threshold terlampaui",
     ],
   },
 ];
