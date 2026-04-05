@@ -13,6 +13,7 @@ import Network from "./pages/Network";
 import SettingsPage from "./pages/SettingsPage";
 import ServerMonitor from "./pages/ServerMonitor";
 import Topology from "./pages/Topology";
+import Reporting from "./pages/Reporting";
 import Login from "./pages/Login";
 import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
@@ -48,6 +49,7 @@ const AppRoutes = () => (
     <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
     <Route path="/server" element={<ProtectedRoute><ServerMonitor /></ProtectedRoute>} />
     <Route path="/topology" element={<ProtectedRoute><Topology /></ProtectedRoute>} />
+    <Route path="/reporting" element={<ProtectedRoute><Reporting /></ProtectedRoute>} />
     <Route path="*" element={<NotFound />} />
   </Routes>
 );
