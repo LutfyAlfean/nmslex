@@ -15,6 +15,7 @@ import {
   Monitor,
   Globe,
   FileBarChart,
+  MessageCircle,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
