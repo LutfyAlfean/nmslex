@@ -45,6 +45,7 @@ const AppRoutes = () => (
     <Route path="/agents/:id" element={<ProtectedRoute><AgentDetail /></ProtectedRoute>} />
     <Route path="/network" element={<ProtectedRoute><Network /></ProtectedRoute>} />
     <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+    <Route path="/server" element={<ProtectedRoute><ServerMonitor /></ProtectedRoute>} />
     <Route path="*" element={<NotFound />} />
   </Routes>
 );
