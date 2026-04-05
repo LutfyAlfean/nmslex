@@ -15,6 +15,7 @@ import {
   Monitor,
   Globe,
   FileBarChart,
+  MessageCircle,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -27,6 +28,7 @@ const navItems = [
   { path: "/topology", label: "Topology", icon: Globe },
   { path: "/server", label: "Server", icon: Monitor },
   { path: "/reporting", label: "Reporting", icon: FileBarChart },
+  { path: "/telegram-setup", label: "Telegram", icon: MessageCircle },
   { path: "/settings", label: "Settings", icon: Settings },
 ];
 
@@ -124,10 +126,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {children}
         </main>
 
-        {/* Footer */}
-        <footer className="h-8 flex items-center justify-center border-t border-border/30 bg-card/20">
-          <p className="text-[10px] text-muted-foreground">© 2026 by Muhammad Lutfi Alfian. All rights reserved.</p>
-        </footer>
       </div>
     </div>
   );

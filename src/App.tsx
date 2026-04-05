@@ -14,6 +14,7 @@ import SettingsPage from "./pages/SettingsPage";
 import ServerMonitor from "./pages/ServerMonitor";
 import Topology from "./pages/Topology";
 import Reporting from "./pages/Reporting";
+import TelegramSetup from "./pages/TelegramSetup";
 import Login from "./pages/Login";
 import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
@@ -50,6 +51,7 @@ const AppRoutes = () => (
     <Route path="/server" element={<ProtectedRoute><ServerMonitor /></ProtectedRoute>} />
     <Route path="/topology" element={<ProtectedRoute><Topology /></ProtectedRoute>} />
     <Route path="/reporting" element={<ProtectedRoute><Reporting /></ProtectedRoute>} />
+    <Route path="/telegram-setup" element={<ProtectedRoute><TelegramSetup /></ProtectedRoute>} />
     <Route path="*" element={<NotFound />} />
   </Routes>
 );
