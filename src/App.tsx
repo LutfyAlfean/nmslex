@@ -15,6 +15,7 @@ import ServerMonitor from "./pages/ServerMonitor";
 import Topology from "./pages/Topology";
 import Reporting from "./pages/Reporting";
 import TelegramSetup from "./pages/TelegramSetup";
+import UserManagement from "./pages/UserManagement";
 import Login from "./pages/Login";
 import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
