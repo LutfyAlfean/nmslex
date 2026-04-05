@@ -12,6 +12,7 @@ import {
   Bell,
   Search,
   LogOut,
+  Monitor,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -21,6 +22,7 @@ const navItems = [
   { path: "/logs", label: "Logs", icon: FileText },
   { path: "/agents", label: "Agents", icon: Server },
   { path: "/network", label: "Network", icon: Activity },
+  { path: "/server", label: "Server", icon: Monitor },
   { path: "/settings", label: "Settings", icon: Settings },
 ];
 

@@ -11,6 +11,7 @@ import Agents from "./pages/Agents";
 import AgentDetail from "./pages/AgentDetail";
 import Network from "./pages/Network";
 import SettingsPage from "./pages/SettingsPage";
+import ServerMonitor from "./pages/ServerMonitor";
 import Login from "./pages/Login";
 import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
@@ -44,6 +45,7 @@ const AppRoutes = () => (
     <Route path="/agents/:id" element={<ProtectedRoute><AgentDetail /></ProtectedRoute>} />
     <Route path="/network" element={<ProtectedRoute><Network /></ProtectedRoute>} />
     <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+    <Route path="/server" element={<ProtectedRoute><ServerMonitor /></ProtectedRoute>} />
     <Route path="*" element={<NotFound />} />
   </Routes>
 );
