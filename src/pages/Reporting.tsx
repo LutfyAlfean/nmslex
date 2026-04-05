@@ -172,6 +172,9 @@ export default function Reporting() {
             <p className="text-muted-foreground text-sm">Laporan mingguan & bulanan tentang alerts dan aktivitas jaringan</p>
           </div>
           <div className="flex items-center gap-2">
+            <button onClick={() => handleExportPDF()} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-destructive/10 text-destructive text-xs font-medium hover:bg-destructive/20 transition-colors">
+              <FileDown className="w-3.5 h-3.5" /> Export PDF
+            </button>
             <button onClick={() => handleExport("json")} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-medium hover:bg-primary/20 transition-colors">
               <Download className="w-3.5 h-3.5" /> Export JSON
             </button>
