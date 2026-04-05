@@ -26,6 +26,7 @@ const navItems = [
   { path: "/network", label: "Network", icon: Activity },
   { path: "/topology", label: "Topology", icon: Globe },
   { path: "/server", label: "Server", icon: Monitor },
+  { path: "/reporting", label: "Reporting", icon: FileBarChart },
   { path: "/settings", label: "Settings", icon: Settings },
 ];
 
