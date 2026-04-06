@@ -530,15 +530,30 @@ do_rebuild() {
   SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
   if [ -d "${NMSLEX_DIR}/dashboard" ]; then
     rsync -a --exclude='node_modules' --exclude='dist' --exclude='.git' "${SCRIPT_DIR}/" "${NMSLEX_DIR}/dashboard/"
+    # Ensure hidden files like .env are synced
+    cp "${SCRIPT_DIR}"/.env ${NMSLEX_DIR}/dashboard/.env 2>/dev/null || true
+    cp "${SCRIPT_DIR}"/.env.example ${NMSLEX_DIR}/dashboard/.env.example 2>/dev/null || true
     log_ok "Source synced"
   else
     mkdir -p ${NMSLEX_DIR}/dashboard
     cp -r "${SCRIPT_DIR}"/* ${NMSLEX_DIR}/dashboard/
+    cp "${SCRIPT_DIR}"/.env ${NMSLEX_DIR}/dashboard/.env 2>/dev/null || true
+    cp "${SCRIPT_DIR}"/.env.example ${NMSLEX_DIR}/dashboard/.env.example 2>/dev/null || true
     log_ok "Source copied"
   fi
 
   log_step "Building Dashboard"
   cd ${NMSLEX_DIR}/dashboard
+
+  # Ensure .env exists with Supabase vars
+  if [ ! -f ".env" ] && [ -f ".env.example" ]; then
+    cp .env.example .env
+    log_info "Created .env from .env.example"
+  fi
+  if ! grep -q "VITE_SUPABASE_URL" .env 2>/dev/null; then
+    log_warn "Missing VITE_SUPABASE_URL in .env - dashboard may show blank page!"
+    [ -f ".env.example" ] && grep "^VITE_SUPABASE" .env.example >> .env
+  fi
 
   log_info "Installing dependencies..."
   npm install 2>&1 | tail -5
