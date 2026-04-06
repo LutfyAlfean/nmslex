@@ -690,10 +690,25 @@ ESEOF
     ensure_elastic_stack_compatibility "Repository vs installed Elasticsearch" "$installed_es_version" "$repo_kb_version"
   fi
 
-  if ! dpkg -l kibana >/dev/null 2>&1 && ! rpm -q kibana >/dev/null 2>&1; then
-    log_info "Installing Kibana..."
-    apt-get install -y -qq kibana >/dev/null 2>&1
-    log_ok "Kibana installed"
+  local kb_installed=false
+  if dpkg -s kibana >/dev/null 2>&1; then
+    kb_installed=true
+  elif rpm -q kibana >/dev/null 2>&1; then
+    kb_installed=true
+  fi
+
+  if [ "$kb_installed" = false ]; then
+    log_info "Installing Kibana (this may take a few minutes)..."
+    if ! apt-get install -y kibana 2>&1 | tail -5; then
+      log_err "Kibana installation FAILED!"
+      log_err "Try manually: sudo apt-get install -y kibana"
+      exit 1
+    fi
+    if ! dpkg -s kibana >/dev/null 2>&1; then
+      log_err "Kibana package not found after install attempt!"
+      exit 1
+    fi
+    log_ok "Kibana installed successfully"
   else
     log_ok "Kibana already installed"
   fi
