@@ -1,21 +1,21 @@
 #!/bin/bash
 #
 # NMSLEX - Network Management System
-# Advanced Deployment & Management Script v2.0
+# Advanced Deployment & Management Script v2.1
 # © 2026 Muhammad Lutfi Alfian
 #
 
-set -e
-
-NMSLEX_VERSION="2.0.0"
+# DO NOT use set -e with background processes
+NMSLEX_VERSION="2.1.0"
 NMSLEX_PORT=7356
 NMSLEX_DIR="/opt/nmslex"
 NMSLEX_CONF="/etc/nmslex"
 NMSLEX_LOG="/var/log/nmslex"
 ELASTIC_VERSION="8.13.0"
-SURICATA_VERSION="7.0.3"
 INTERFACE="eth0"
 ACTION="install"
+
+export DEBIAN_FRONTEND=noninteractive
 
 # ═══════════════════════════════════════
 # ANSI Colors & Styles
@@ -45,7 +45,7 @@ log_err()   { echo -e "  ${RED}✘${NC} $1"; }
 log_step()  { echo -e "\n${BOLD}${BLUE}━━━ $1 ━━━${NC}"; }
 
 # ═══════════════════════════════════════
-# Animated Spinner
+# Animated Spinner (with exit code check)
 # ═══════════════════════════════════════
 spinner() {
   local pid=$1
@@ -57,7 +57,14 @@ spinner() {
     i=$(( (i+1) % ${#frames[@]} ))
     sleep 0.1
   done
-  printf "\r  ${GREEN}✔${NC} %-60s\n" "$msg"
+  wait "$pid" 2>/dev/null
+  local exit_code=$?
+  if [ $exit_code -eq 0 ]; then
+    printf "\r  ${GREEN}✔${NC} %-60s\n" "$msg"
+  else
+    printf "\r  ${RED}✘${NC} %-60s\n" "$msg (exit code: $exit_code)"
+  fi
+  return $exit_code
 }
 
 # ═══════════════════════════════════════
@@ -163,6 +170,16 @@ detect_os() {
 }
 
 # ═══════════════════════════════════════
+# Run command in background with spinner
+# ═══════════════════════════════════════
+run_with_spinner() {
+  local msg="$1"
+  shift
+  "$@" >/dev/null 2>&1 &
+  spinner $! "$msg"
+}
+
+# ═══════════════════════════════════════
 # UNINSTALL
 # ═══════════════════════════════════════
 do_uninstall() {
@@ -184,28 +201,27 @@ do_uninstall() {
   echo ""
   log_step "Stopping Services"
   for svc in nmslex-dashboard nmslex-manager nmslex-indexer suricata elasticsearch kibana filebeat; do
-    (systemctl stop $svc 2>/dev/null; systemctl disable $svc 2>/dev/null) &
-    spinner $! "Stopping $svc..."
+    systemctl stop "$svc" 2>/dev/null || true
+    systemctl disable "$svc" 2>/dev/null || true
+    log_ok "Stopped $svc"
   done
 
   log_step "Removing Files"
-  (
-    rm -f /etc/systemd/system/nmslex-*.service
-    rm -rf ${NMSLEX_DIR}
-    rm -rf ${NMSLEX_CONF}
-    rm -rf ${NMSLEX_LOG}
-    systemctl daemon-reload
-  ) &
-  spinner $! "Cleaning up NMSLEX files..."
+  rm -f /etc/systemd/system/nmslex-*.service
+  rm -rf ${NMSLEX_DIR}
+  rm -rf ${NMSLEX_CONF}
+  rm -rf ${NMSLEX_LOG}
+  systemctl daemon-reload
+  log_ok "NMSLEX files removed"
 
   log_step "Removing Packages"
   if [[ "$OS" == "ubuntu" || "$OS" == "debian" ]]; then
-    (apt-get remove -y -qq suricata elasticsearch kibana filebeat 2>/dev/null; apt-get autoremove -y -qq 2>/dev/null) &
-    spinner $! "Removing packages..."
+    apt-get remove -y -qq suricata elasticsearch kibana filebeat 2>/dev/null || true
+    apt-get autoremove -y -qq 2>/dev/null || true
   elif [[ "$OS" == "centos" || "$OS" == "rocky" ]]; then
-    (yum remove -y -q suricata elasticsearch kibana filebeat 2>/dev/null) &
-    spinner $! "Removing packages..."
+    yum remove -y -q suricata elasticsearch kibana filebeat 2>/dev/null || true
   fi
+  log_ok "Packages removed"
 
   echo ""
   echo -e "  ${GREEN}${BOLD}✔ NMSLEX has been completely uninstalled.${NC}"
@@ -232,14 +248,13 @@ do_reset() {
   echo ""
   log_step "Stopping Services"
   for svc in nmslex-dashboard nmslex-manager nmslex-indexer; do
-    (systemctl stop $svc 2>/dev/null) &
-    spinner $! "Stopping $svc..."
+    systemctl stop "$svc" 2>/dev/null || true
+    log_ok "Stopped $svc"
   done
 
   log_step "Resetting Configuration"
 
-  # Re-create Suricata config
-  (cat > /etc/suricata/suricata-nmslex.yaml << SURICATAEOF
+  cat > /etc/suricata/suricata-nmslex.yaml << SURICATAEOF
 %YAML 1.1
 ---
 vars:
@@ -270,11 +285,9 @@ outputs:
             totals: yes
             threads: no
 SURICATAEOF
-  ) &
-  spinner $! "Resetting Suricata config..."
+  log_ok "Suricata config reset"
 
-  # Re-create dashboard config
-  (cat > ${NMSLEX_CONF}/dashboard.conf << EOF
+  cat > ${NMSLEX_CONF}/dashboard.conf << EOF
 NMSLEX_PORT=${NMSLEX_PORT}
 NMSLEX_DIR=${NMSLEX_DIR}
 NMSLEX_LOG=${NMSLEX_LOG}
@@ -282,11 +295,9 @@ ES_HOST=http://localhost:9200
 KIBANA_HOST=http://localhost:5601
 SURICATA_LOG=/var/log/suricata/eve.json
 EOF
-  ) &
-  spinner $! "Resetting dashboard config..."
+  log_ok "Dashboard config reset"
 
-  # Re-create Filebeat config
-  (cat > /etc/filebeat/filebeat.yml << 'FBEOF'
+  cat > /etc/filebeat/filebeat.yml << 'FBEOF'
 filebeat.inputs:
   - type: log
     enabled: true
@@ -303,15 +314,12 @@ setup.template.name: "nmslex-suricata"
 setup.template.pattern: "nmslex-suricata-*"
 setup.ilm.enabled: false
 FBEOF
-  ) &
-  spinner $! "Resetting Filebeat config..."
-
-  sleep 1
+  log_ok "Filebeat config reset"
 
   log_step "Restarting Services"
   for svc in suricata elasticsearch kibana filebeat nmslex-dashboard nmslex-manager nmslex-indexer; do
-    (systemctl restart $svc 2>/dev/null) &
-    spinner $! "Restarting $svc..."
+    systemctl restart "$svc" 2>/dev/null || true
+    log_ok "Restarted $svc"
   done
 
   echo ""
@@ -333,32 +341,39 @@ do_rebuild() {
   echo ""
 
   log_step "Stopping Dashboard"
-  (systemctl stop nmslex-dashboard 2>/dev/null) &
-  spinner $! "Stopping dashboard service..."
+  systemctl stop nmslex-dashboard 2>/dev/null || true
+  log_ok "Dashboard stopped"
+
+  log_step "Syncing Source"
+  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  if [ -d "${NMSLEX_DIR}/dashboard" ]; then
+    rsync -a --exclude='node_modules' --exclude='dist' --exclude='.git' "${SCRIPT_DIR}/" "${NMSLEX_DIR}/dashboard/"
+    log_ok "Source synced"
+  else
+    mkdir -p ${NMSLEX_DIR}/dashboard
+    cp -r "${SCRIPT_DIR}"/* ${NMSLEX_DIR}/dashboard/
+    log_ok "Source copied"
+  fi
 
   log_step "Building Dashboard"
   cd ${NMSLEX_DIR}/dashboard
 
-  # Pull latest if git
-  if [ -d ".git" ]; then
-    (git pull 2>/dev/null) &
-    spinner $! "Pulling latest changes..."
+  log_info "Installing dependencies..."
+  npm install 2>&1 | tail -5
+  log_ok "Dependencies installed"
+
+  log_info "Building production bundle..."
+  npx vite build 2>&1 | tail -5
+  if [ $? -eq 0 ]; then
+    log_ok "Build complete"
   else
-    log_info "Copying source files..."
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    (cp -r "${SCRIPT_DIR}"/* ${NMSLEX_DIR}/dashboard/ 2>/dev/null) &
-    spinner $! "Syncing source files..."
+    log_err "Build failed! Check errors above."
+    exit 1
   fi
 
-  (npm install 2>/dev/null) &
-  spinner $! "Installing dependencies..."
-
-  (npm run build 2>&1 > /dev/null) &
-  spinner $! "Building production bundle..."
-
   log_step "Restarting Dashboard"
-  (systemctl start nmslex-dashboard) &
-  spinner $! "Starting dashboard service..."
+  systemctl start nmslex-dashboard
+  log_ok "Dashboard started"
 
   echo ""
   echo -e "  ${GREEN}${BOLD}✔ Dashboard rebuilt successfully!${NC}"
@@ -385,11 +400,15 @@ do_install() {
   step=$((step+1))
   log_step "[$step/$steps] System Dependencies"
   if [[ "$OS" == "ubuntu" || "$OS" == "debian" ]]; then
-    (apt-get update -qq && apt-get install -y -qq curl wget gnupg2 apt-transport-https ca-certificates software-properties-common jq git build-essential 2>&1 > /dev/null) &
-    spinner $! "Installing system packages..."
+    log_info "Updating package lists..."
+    apt-get update -qq 2>&1 | tail -1
+    log_info "Installing system packages..."
+    apt-get install -y -qq curl wget gnupg2 apt-transport-https ca-certificates software-properties-common jq git build-essential 2>&1 | tail -1
+    log_ok "System packages installed"
   elif [[ "$OS" == "centos" || "$OS" == "rocky" || "$OS" == "rhel" ]]; then
-    (yum install -y -q curl wget gnupg2 ca-certificates jq git gcc make 2>&1 > /dev/null) &
-    spinner $! "Installing system packages..."
+    log_info "Installing system packages..."
+    yum install -y -q curl wget gnupg2 ca-certificates jq git gcc make 2>&1 | tail -1
+    log_ok "System packages installed"
   fi
   progress_bar $step $steps "Overall"
 
@@ -397,10 +416,18 @@ do_install() {
   step=$((step+1))
   log_step "[$step/$steps] Node.js Runtime"
   if ! command -v node &> /dev/null; then
-    (curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && apt-get install -y -qq nodejs 2>&1 > /dev/null) &
-    spinner $! "Installing Node.js 18..."
+    log_info "Installing Node.js 18..."
+    curl -fsSL https://deb.nodesource.com/setup_18.x | bash - >/dev/null 2>&1
+    apt-get install -y -qq nodejs >/dev/null 2>&1
+    log_ok "Node.js $(node --version) installed"
   else
     log_ok "Node.js $(node --version) already installed"
+  fi
+  # Install serve globally for systemd
+  if ! command -v serve &> /dev/null; then
+    log_info "Installing serve (static file server)..."
+    npm install -g serve >/dev/null 2>&1
+    log_ok "serve installed"
   fi
   progress_bar $step $steps "Overall"
 
@@ -409,18 +436,22 @@ do_install() {
   log_step "[$step/$steps] Suricata IDS"
   if ! command -v suricata &> /dev/null; then
     if [[ "$OS" == "ubuntu" || "$OS" == "debian" ]]; then
-      (add-apt-repository -y ppa:oisf/suricata-stable 2>/dev/null; apt-get update -qq; apt-get install -y -qq suricata 2>&1 > /dev/null) &
-      spinner $! "Installing Suricata..."
+      log_info "Adding Suricata repository..."
+      add-apt-repository -y ppa:oisf/suricata-stable >/dev/null 2>&1 || true
+      apt-get update -qq >/dev/null 2>&1
+      log_info "Installing Suricata..."
+      apt-get install -y -qq suricata >/dev/null 2>&1
     elif [[ "$OS" == "centos" || "$OS" == "rocky" ]]; then
-      (yum install -y -q epel-release; yum install -y -q suricata 2>&1 > /dev/null) &
-      spinner $! "Installing Suricata..."
+      yum install -y -q epel-release >/dev/null 2>&1
+      yum install -y -q suricata >/dev/null 2>&1
     fi
+    log_ok "Suricata installed"
   else
     log_ok "Suricata already installed"
   fi
 
-  # Configure Suricata
-  (cat > /etc/suricata/suricata-nmslex.yaml << SURICATAEOF
+  log_info "Configuring Suricata..."
+  cat > /etc/suricata/suricata-nmslex.yaml << SURICATAEOF
 %YAML 1.1
 ---
 vars:
@@ -451,66 +482,78 @@ outputs:
             totals: yes
             threads: no
 SURICATAEOF
-  suricata-update 2>/dev/null
-  ) &
-  spinner $! "Configuring Suricata rules..."
+  suricata-update >/dev/null 2>&1 || true
+  log_ok "Suricata configured"
   progress_bar $step $steps "Overall"
 
   # Step 4: Elasticsearch
   step=$((step+1))
   log_step "[$step/$steps] Elasticsearch"
-  if ! command -v /usr/share/elasticsearch/bin/elasticsearch &> /dev/null; then
-    (wget -qO - https://artifacts.elastic.co/GPG-KEY-elasticsearch | gpg --dearmor -o /usr/share/keyrings/elasticsearch-keyring.gpg 2>/dev/null
+  if ! dpkg -l elasticsearch >/dev/null 2>&1 && ! rpm -q elasticsearch >/dev/null 2>&1; then
+    log_info "Adding Elastic repository..."
+    wget -qO - https://artifacts.elastic.co/GPG-KEY-elasticsearch | gpg --dearmor -o /usr/share/keyrings/elasticsearch-keyring.gpg 2>/dev/null || true
     echo "deb [signed-by=/usr/share/keyrings/elasticsearch-keyring.gpg] https://artifacts.elastic.co/packages/8.x/apt stable main" > /etc/apt/sources.list.d/elastic-8.x.list
-    apt-get update -qq && apt-get install -y -qq elasticsearch 2>&1 > /dev/null) &
-    spinner $! "Installing Elasticsearch ${ELASTIC_VERSION}..."
+    apt-get update -qq >/dev/null 2>&1
+    log_info "Installing Elasticsearch (this may take a few minutes)..."
+    apt-get install -y -qq elasticsearch >/dev/null 2>&1
+    log_ok "Elasticsearch installed"
   else
     log_ok "Elasticsearch already installed"
   fi
 
-  (cat >> /etc/elasticsearch/elasticsearch.yml << 'ESEOF'
+  log_info "Configuring Elasticsearch..."
+  # Only add config if not already configured
+  if ! grep -q "nmslex-cluster" /etc/elasticsearch/elasticsearch.yml 2>/dev/null; then
+    cat >> /etc/elasticsearch/elasticsearch.yml << 'ESEOF'
+
+# NMSLEX Config
 cluster.name: nmslex-cluster
 node.name: nmslex-node-1
 network.host: 0.0.0.0
 discovery.type: single-node
 xpack.security.enabled: false
 ESEOF
-  sysctl -w vm.max_map_count=262144 2>/dev/null
-  echo "vm.max_map_count=262144" >> /etc/sysctl.conf 2>/dev/null
-  ) &
-  spinner $! "Configuring Elasticsearch..."
+  fi
+  sysctl -w vm.max_map_count=262144 >/dev/null 2>&1 || true
+  grep -q "vm.max_map_count" /etc/sysctl.conf || echo "vm.max_map_count=262144" >> /etc/sysctl.conf
+  log_ok "Elasticsearch configured"
   progress_bar $step $steps "Overall"
 
   # Step 5: Kibana
   step=$((step+1))
   log_step "[$step/$steps] Kibana"
-  if ! command -v /usr/share/kibana/bin/kibana &> /dev/null; then
-    (apt-get install -y -qq kibana 2>&1 > /dev/null) &
-    spinner $! "Installing Kibana..."
+  if ! dpkg -l kibana >/dev/null 2>&1 && ! rpm -q kibana >/dev/null 2>&1; then
+    log_info "Installing Kibana..."
+    apt-get install -y -qq kibana >/dev/null 2>&1
+    log_ok "Kibana installed"
   else
     log_ok "Kibana already installed"
   fi
 
-  (cat >> /etc/kibana/kibana.yml << 'KBEOF'
+  if ! grep -q "nmslex" /etc/kibana/kibana.yml 2>/dev/null; then
+    cat >> /etc/kibana/kibana.yml << 'KBEOF'
+
+# NMSLEX Config
 server.host: "0.0.0.0"
 server.port: 5601
 elasticsearch.hosts: ["http://localhost:9200"]
 KBEOF
-  ) &
-  spinner $! "Configuring Kibana..."
+  fi
+  log_ok "Kibana configured"
   progress_bar $step $steps "Overall"
 
   # Step 6: Filebeat
   step=$((step+1))
   log_step "[$step/$steps] Filebeat"
   if ! command -v filebeat &> /dev/null; then
-    (apt-get install -y -qq filebeat 2>&1 > /dev/null) &
-    spinner $! "Installing Filebeat..."
+    log_info "Installing Filebeat..."
+    apt-get install -y -qq filebeat >/dev/null 2>&1
+    log_ok "Filebeat installed"
   else
     log_ok "Filebeat already installed"
   fi
 
-  (cat > /etc/filebeat/filebeat.yml << 'FBEOF'
+  cat > /etc/filebeat/filebeat.yml << 'FBEOF'
 filebeat.inputs:
   - type: log
     enabled: true
@@ -527,8 +570,7 @@ setup.template.name: "nmslex-suricata"
 setup.template.pattern: "nmslex-suricata-*"
 setup.ilm.enabled: false
 FBEOF
-  ) &
-  spinner $! "Configuring Filebeat..."
+  log_ok "Filebeat configured"
   progress_bar $step $steps "Overall"
 
   # Step 7: NMSLEX directories & build
@@ -538,14 +580,27 @@ FBEOF
   mkdir -p ${NMSLEX_CONF}
   mkdir -p ${NMSLEX_LOG}
 
-  cp -r . ${NMSLEX_DIR}/dashboard/
+  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  log_info "Copying source files..."
+  cp -r "${SCRIPT_DIR}"/* ${NMSLEX_DIR}/dashboard/ 2>/dev/null || true
   cd ${NMSLEX_DIR}/dashboard
 
-  (npm install 2>&1 > /dev/null) &
-  spinner $! "Installing node modules..."
+  log_info "Installing node modules (this may take a minute)..."
+  npm install 2>&1 | tail -3
+  log_ok "Node modules installed"
 
-  (npm run build 2>&1 > /dev/null) &
-  spinner $! "Building production bundle..."
+  log_info "Building production bundle..."
+  npx vite build 2>&1 | tail -5
+  if [ -d "dist" ]; then
+    log_ok "Dashboard built successfully"
+  else
+    log_err "Build failed! Retrying with verbose output..."
+    npx vite build
+    if [ ! -d "dist" ]; then
+      log_err "Build failed. Please check errors above and run: sudo ./deploy.sh --rebuild"
+      exit 1
+    fi
+  fi
   progress_bar $step $steps "Overall"
 
   # Step 8: Config & scripts
@@ -594,7 +649,7 @@ while true; do
   if [ -f "$EVE_JSON" ]; then
     LINES=$(wc -l < "$EVE_JSON")
     log "[INFO] eve.json has $LINES lines"
-    SIZE=$(stat -f%z "$EVE_JSON" 2>/dev/null || stat -c%s "$EVE_JSON" 2>/dev/null)
+    SIZE=$(stat -c%s "$EVE_JSON" 2>/dev/null || stat -f%z "$EVE_JSON" 2>/dev/null || echo 0)
     if [ "$SIZE" -gt 1073741824 ]; then
       log "[INFO] Rotating eve.json (size: $SIZE bytes)"
       mv "$EVE_JSON" "${EVE_JSON}.$(date +%Y%m%d%H%M%S)"
@@ -622,7 +677,7 @@ Wants=elasticsearch.service
 [Service]
 Type=simple
 EnvironmentFile=${NMSLEX_CONF}/dashboard.conf
-ExecStart=/usr/bin/npx serve -s ${NMSLEX_DIR}/dashboard/dist -l ${NMSLEX_PORT}
+ExecStart=$(which serve) -s ${NMSLEX_DIR}/dashboard/dist -l ${NMSLEX_PORT}
 Restart=always
 RestartSec=5
 StandardOutput=append:${NMSLEX_LOG}/dashboard.log
@@ -673,8 +728,13 @@ EOF
   systemctl daemon-reload
 
   for svc in elasticsearch kibana suricata filebeat nmslex-dashboard nmslex-manager nmslex-indexer; do
-    (systemctl enable $svc 2>/dev/null; systemctl start $svc 2>/dev/null) &
-    spinner $! "Starting $svc..."
+    systemctl enable "$svc" >/dev/null 2>&1 || true
+    systemctl start "$svc" 2>/dev/null || true
+    if systemctl is-active --quiet "$svc" 2>/dev/null; then
+      log_ok "Started $svc"
+    else
+      log_warn "$svc may need time to start (check: systemctl status $svc)"
+    fi
   done
   progress_bar $step $steps "Overall"
 
@@ -694,7 +754,7 @@ EOF
 create_agent_script() {
   cat > ${NMSLEX_DIR}/scripts/nmslex-agent-install.sh << 'AGENTEOF'
 #!/bin/bash
-set -e
+export DEBIAN_FRONTEND=noninteractive
 NMSLEX_SERVER=""
 NMSLEX_PORT=9200
 AGENT_NAME=$(hostname)
