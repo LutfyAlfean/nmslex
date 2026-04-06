@@ -835,16 +835,48 @@ ESEOF
   installed_kb_version=$(get_package_version kibana 2>/dev/null || true)
   ensure_elastic_stack_compatibility "Elastic Stack" "$installed_es_version" "$installed_kb_version"
 
+  # Clean old NMSLEX config entries
   sed -i '/^server\.host:/d' /etc/kibana/kibana.yml
   sed -i '/^server\.port:/d' /etc/kibana/kibana.yml
   sed -i '/^elasticsearch\.hosts:/d' /etc/kibana/kibana.yml
+  sed -i '/^xpack\.security\.enabled:/d' /etc/kibana/kibana.yml
+  sed -i '/^xpack\.encryptedSavedObjects\.encryptionKey:/d' /etc/kibana/kibana.yml
+  sed -i '/^xpack\.reporting\.encryptionKey:/d' /etc/kibana/kibana.yml
+  sed -i '/^xpack\.security\.encryptionKey:/d' /etc/kibana/kibana.yml
   sed -i '/^# NMSLEX Config$/d' /etc/kibana/kibana.yml
-  cat >> /etc/kibana/kibana.yml << 'KBEOF'
+
+  # Generate encryption keys (required by Kibana xpack)
+  local kb_enc_key
+  local kb_rpt_key
+  local kb_sec_key
+  # Re-use existing keys if stored, otherwise generate new ones
+  if [ -f "${NMSLEX_CONF}/kibana-keys" ]; then
+    source "${NMSLEX_CONF}/kibana-keys"
+    kb_enc_key="${KIBANA_ENC_KEY}"
+    kb_rpt_key="${KIBANA_RPT_KEY}"
+    kb_sec_key="${KIBANA_SEC_KEY}"
+  fi
+  [ -z "$kb_enc_key" ] && kb_enc_key=$(openssl rand -hex 16)
+  [ -z "$kb_rpt_key" ] && kb_rpt_key=$(openssl rand -hex 16)
+  [ -z "$kb_sec_key" ] && kb_sec_key=$(openssl rand -hex 16)
+  # Persist keys
+  cat > "${NMSLEX_CONF}/kibana-keys" << KEYEOF
+KIBANA_ENC_KEY=${kb_enc_key}
+KIBANA_RPT_KEY=${kb_rpt_key}
+KIBANA_SEC_KEY=${kb_sec_key}
+KEYEOF
+  chmod 600 "${NMSLEX_CONF}/kibana-keys"
+
+  cat >> /etc/kibana/kibana.yml << KBEOF
 
 # NMSLEX Config
 server.host: "0.0.0.0"
 server.port: 5601
 elasticsearch.hosts: ["http://localhost:9200"]
+xpack.security.enabled: false
+xpack.encryptedSavedObjects.encryptionKey: "${kb_enc_key}"
+xpack.reporting.encryptionKey: "${kb_rpt_key}"
+xpack.security.encryptionKey: "${kb_sec_key}"
 KBEOF
   fix_kibana_runtime_env
   log_ok "Kibana configured"
