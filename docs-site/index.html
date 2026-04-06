@@ -399,6 +399,20 @@ sudo ./deploy.sh</code></pre>
             <span>Deploy dengan interface custom</span>
           </div>
         </div>
+
+        <div style="margin-top:2rem;padding:1.5rem;border-radius:12px;border:1px solid rgba(45,212,191,0.2);background:rgba(45,212,191,0.05);">
+          <h3 style="margin:0 0 0.75rem;font-size:1rem;color:#2dd4bf;">🔑 Mengganti Secret NMSLEX_HOST</h3>
+          <p style="margin:0 0 0.5rem;font-size:0.875rem;color:rgba(255,255,255,0.7);">
+            Secret <code>NMSLEX_HOST</code> menentukan IP VM yang dicek oleh health-check. Untuk mengganti:
+          </p>
+          <ol style="margin:0;padding-left:1.25rem;font-size:0.875rem;color:rgba(255,255,255,0.7);">
+            <li>Buka <strong>Lovable Editor</strong> → minta AI: <em>"Update secret NMSLEX_HOST ke http://IP-BARU"</em></li>
+            <li>Atau buka <strong>Settings → Secrets</strong> di Lovable Cloud</li>
+          </ol>
+          <p style="margin:0.5rem 0 0;font-size:0.8rem;color:rgba(255,255,255,0.5);">
+            Format: <code>http://192.168.1.100</code> (tanpa trailing slash, tanpa port)
+          </p>
+        </div>
       </div>
     </div>
   </section>
