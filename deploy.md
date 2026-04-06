@@ -191,6 +191,27 @@ NMSLEX_KIBANA_HOST=http://localhost:5601
 NMSLEX_SURICATA_LOG=/var/log/suricata/eve.json
 ```
 
+### Mengganti Secret `NMSLEX_HOST`
+
+Secret `NMSLEX_HOST` adalah environment variable di Lovable Cloud (Edge Function) yang menentukan IP/hostname VM tempat service NMSLEX berjalan. Health-check function menggunakan secret ini untuk probe Elasticsearch (`:9200`), Kibana (`:5601`), Dashboard (`:7356`), dll.
+
+**Cara mengganti:**
+
+1. **Via Lovable Editor** — Minta AI: *"Update secret NMSLEX_HOST ke http://IP-BARU"*
+2. **Via Lovable Cloud** — Buka Settings → Secrets → Edit `NMSLEX_HOST`
+
+**Format nilai:**
+```
+http://192.168.1.100
+```
+
+> ⚠️ Gunakan `http://` (bukan `https://`), tanpa trailing slash, tanpa port. Port ditambahkan otomatis per-service oleh health-check function.
+
+**Kapan perlu diganti:**
+- Saat VM dipindahkan ke IP baru
+- Saat deploy ulang di server berbeda
+- Saat beralih dari local ke production environment
+
 ---
 
 ## Troubleshooting

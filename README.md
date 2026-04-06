@@ -168,6 +168,18 @@ Halaman login menampilkan **status backend services** secara real-time:
 - Bisa di-expand untuk melihat detail setiap service
 - Membantu debug jika dashboard blank setelah login
 
+### Mengganti Secret `NMSLEX_HOST`
+
+Secret `NMSLEX_HOST` digunakan oleh Edge Function health-check untuk mengecek service di VM. Cara mengubahnya:
+
+1. Buka **Lovable Editor** → project NMSLEX
+2. Minta AI: *"Update secret NMSLEX_HOST dengan IP baru"*
+3. Atau gunakan panel **Settings → Secrets** di Lovable Cloud
+4. Isi dengan IP/hostname VM (contoh: `http://192.168.1.100`)
+5. Edge Function akan otomatis menggunakan nilai baru
+
+> ⚠️ Format: `http://<IP_VM>` (tanpa trailing slash, tanpa port). Port ditambahkan otomatis oleh health-check function.
+
 ---
 
 ## 📚 Dokumentasi
