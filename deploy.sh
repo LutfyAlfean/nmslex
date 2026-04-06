@@ -502,9 +502,15 @@ SURICATAEOF
   fi
 
   log_info "Configuring Elasticsearch..."
-  # Only add config if not already configured
-  if ! grep -q "nmslex-cluster" /etc/elasticsearch/elasticsearch.yml 2>/dev/null; then
-    cat >> /etc/elasticsearch/elasticsearch.yml << 'ESEOF'
+  ELASTICSEARCH_CONFIG="/etc/elasticsearch/elasticsearch.yml"
+
+  sed -i '/^cluster\.name:/d' "$ELASTICSEARCH_CONFIG"
+  sed -i '/^node\.name:/d' "$ELASTICSEARCH_CONFIG"
+  sed -i '/^network\.host:/d' "$ELASTICSEARCH_CONFIG"
+  sed -i '/^discovery\.type:/d' "$ELASTICSEARCH_CONFIG"
+  sed -i '/^xpack\.security\.enabled:/d' "$ELASTICSEARCH_CONFIG"
+
+  cat >> "$ELASTICSEARCH_CONFIG" << 'ESEOF'
 
 # NMSLEX Config
 cluster.name: nmslex-cluster
@@ -513,9 +519,9 @@ network.host: 0.0.0.0
 discovery.type: single-node
 xpack.security.enabled: false
 ESEOF
-  fi
+
   sysctl -w vm.max_map_count=262144 >/dev/null 2>&1 || true
-  grep -q "vm.max_map_count" /etc/sysctl.conf || echo "vm.max_map_count=262144" >> /etc/sysctl.conf
+  grep -q "^vm.max_map_count=262144$" /etc/sysctl.conf || echo "vm.max_map_count=262144" >> /etc/sysctl.conf
   log_ok "Elasticsearch configured"
   progress_bar $step $steps "Overall"
 
