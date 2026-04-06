@@ -589,8 +589,22 @@ SURICATAEOF
   installed_kb_version=$(get_package_version kibana 2>/dev/null || true)
   ensure_elastic_stack_compatibility "Installed Elastic Stack" "$installed_es_version" "$installed_kb_version"
 
+  # Ensure prerequisites for HTTPS repos
+  log_info "Installing prerequisites (apt-transport-https, gnupg)..."
+  apt-get install -y -qq apt-transport-https gnupg >/dev/null 2>&1 || true
+
+  log_info "Adding Elastic GPG key..."
+  if ! wget -qO - https://artifacts.elastic.co/GPG-KEY-elasticsearch | gpg --dearmor --batch --yes -o /usr/share/keyrings/elasticsearch-keyring.gpg 2>/dev/null; then
+    log_warn "GPG key download failed, retrying with curl..."
+    curl -fsSL https://artifacts.elastic.co/GPG-KEY-elasticsearch | gpg --dearmor --batch --yes -o /usr/share/keyrings/elasticsearch-keyring.gpg 2>/dev/null || {
+      log_err "Failed to import Elastic GPG key. Check internet connection."
+      log_err "Manual fix: wget -qO - https://artifacts.elastic.co/GPG-KEY-elasticsearch | sudo gpg --dearmor -o /usr/share/keyrings/elasticsearch-keyring.gpg"
+      exit 1
+    }
+  fi
+  log_ok "Elastic GPG key imported"
+
   log_info "Adding Elastic repository..."
-  wget -qO - https://artifacts.elastic.co/GPG-KEY-elasticsearch | gpg --dearmor -o /usr/share/keyrings/elasticsearch-keyring.gpg 2>/dev/null || true
   echo "deb [signed-by=/usr/share/keyrings/elasticsearch-keyring.gpg] https://artifacts.elastic.co/packages/8.x/apt stable main" > /etc/apt/sources.list.d/elastic-8.x.list
   apt-get update -qq >/dev/null 2>&1
 
@@ -608,10 +622,29 @@ SURICATAEOF
     log_info "Kibana candidate version: ${WHITE}${repo_kb_version}${NC}"
   fi
 
-  if ! dpkg -l elasticsearch >/dev/null 2>&1 && ! rpm -q elasticsearch >/dev/null 2>&1; then
+  # Reliable installed check: dpkg -s returns 0 only if fully installed
+  local es_installed=false
+  if dpkg -s elasticsearch >/dev/null 2>&1; then
+    es_installed=true
+  elif rpm -q elasticsearch >/dev/null 2>&1; then
+    es_installed=true
+  fi
+
+  if [ "$es_installed" = false ]; then
     log_info "Installing Elasticsearch (this may take a few minutes)..."
-    apt-get install -y -qq elasticsearch >/dev/null 2>&1
-    log_ok "Elasticsearch installed"
+    if ! apt-get install -y elasticsearch 2>&1 | tail -5; then
+      log_err "Elasticsearch installation FAILED!"
+      log_err "Try manually: sudo apt-get install -y elasticsearch"
+      log_err "Check: sudo apt-get update && apt-cache policy elasticsearch"
+      exit 1
+    fi
+    # Verify it actually installed
+    if ! dpkg -s elasticsearch >/dev/null 2>&1; then
+      log_err "Elasticsearch package not found after install attempt!"
+      log_err "Check repository: apt-cache policy elasticsearch"
+      exit 1
+    fi
+    log_ok "Elasticsearch installed successfully"
   else
     log_ok "Elasticsearch already installed"
   fi
