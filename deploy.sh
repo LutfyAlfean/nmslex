@@ -139,6 +139,7 @@ while [[ $# -gt 0 ]]; do
     --rebuild)    ACTION="rebuild"; shift ;;
     --reset)      ACTION="reset"; shift ;;
     --uninstall)  ACTION="uninstall"; shift ;;
+    --status)     ACTION="status"; shift ;;
     --help|-h)    show_usage; exit 0 ;;
     *)            shift ;;
   esac
