@@ -248,6 +248,53 @@ is_service_known() {
   systemctl list-unit-files --type=service 2>/dev/null | awk '{print $1}' | grep -qx "${svc}.service"
 }
 
+wait_for_http() {
+  local url="$1"
+  local timeout="${2:-60}"
+  local label="${3:-Endpoint}"
+  local elapsed=0
+
+  while [ "$elapsed" -lt "$timeout" ]; do
+    if curl -fsS --max-time 5 "$url" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 2
+    elapsed=$((elapsed + 2))
+  done
+
+  log_warn "$label did not respond within ${timeout}s"
+  return 1
+}
+
+wait_for_port() {
+  local port="$1"
+  local timeout="${2:-60}"
+  local label="${3:-Port ${port}}"
+  local elapsed=0
+
+  while [ "$elapsed" -lt "$timeout" ]; do
+    if ss -tlnH 2>/dev/null | awk '{print $4}' | grep -Eq "(:|\])${port}$"; then
+      return 0
+    fi
+    sleep 2
+    elapsed=$((elapsed + 2))
+  done
+
+  log_warn "$label did not listen within ${timeout}s"
+  return 1
+}
+
+get_configured_dashboard_port() {
+  local config_file="${NMSLEX_CONF}/dashboard.conf"
+  local configured_port=""
+
+  if [ -f "$config_file" ]; then
+    configured_port=$(read_env_value "NMSLEX_PORT" "$config_file")
+  fi
+
+  printf "%s" "${configured_port:-$NMSLEX_PORT}"
+}
+
 get_major_minor_version() {
   echo "$1" | grep -oE '[0-9]+\.[0-9]+' | head -n 1
 }
@@ -288,14 +335,17 @@ fix_kibana_runtime_env() {
 [Service]
 Environment="NODE_OPTIONS="
 Environment="NODE_PATH="
+Environment="NODE_ENV="
 UnsetEnvironment=NODE_OPTIONS
 UnsetEnvironment=NODE_PATH
+UnsetEnvironment=NODE_ENV
 KBSVC
 
   mkdir -p /etc/default
   if [ -f /etc/default/kibana ]; then
     sed -i '/^NODE_OPTIONS=/d' /etc/default/kibana
     sed -i '/^NODE_PATH=/d' /etc/default/kibana
+    sed -i '/^NODE_ENV=/d' /etc/default/kibana
   else
     touch /etc/default/kibana
   fi
@@ -770,15 +820,17 @@ ESEOF
   installed_kb_version=$(get_package_version kibana 2>/dev/null || true)
   ensure_elastic_stack_compatibility "Elastic Stack" "$installed_es_version" "$installed_kb_version"
 
-  if ! grep -q "nmslex" /etc/kibana/kibana.yml 2>/dev/null; then
-    cat >> /etc/kibana/kibana.yml << 'KBEOF'
+  sed -i '/^server\.host:/d' /etc/kibana/kibana.yml
+  sed -i '/^server\.port:/d' /etc/kibana/kibana.yml
+  sed -i '/^elasticsearch\.hosts:/d' /etc/kibana/kibana.yml
+  sed -i '/^# NMSLEX Config$/d' /etc/kibana/kibana.yml
+  cat >> /etc/kibana/kibana.yml << 'KBEOF'
 
 # NMSLEX Config
 server.host: "0.0.0.0"
 server.port: 5601
 elasticsearch.hosts: ["http://localhost:9200"]
 KBEOF
-  fi
   fix_kibana_runtime_env
   log_ok "Kibana configured"
   progress_bar $step $steps "Overall"
@@ -1008,20 +1060,69 @@ EOF
   log_step "[$step/$steps] Starting Services"
   systemctl daemon-reload
 
-  for svc in elasticsearch kibana suricata filebeat nmslex-dashboard nmslex-manager nmslex-indexer; do
+  if is_service_known elasticsearch; then
+    systemctl reset-failed elasticsearch >/dev/null 2>&1 || true
+    systemctl enable elasticsearch >/dev/null 2>&1 || true
+    systemctl restart elasticsearch >/dev/null 2>&1 || true
+    if wait_for_http "http://localhost:9200" 120 "Elasticsearch API" && systemctl is-active --quiet elasticsearch 2>/dev/null; then
+      log_ok "Started elasticsearch"
+    else
+      log_warn "elasticsearch failed to become ready (check: systemctl status elasticsearch && journalctl -u elasticsearch -n 50 --no-pager)"
+    fi
+  else
+    log_warn "elasticsearch service unit not found; skipping start"
+  fi
+
+  if is_service_known kibana; then
+    fix_kibana_runtime_env
+    systemctl reset-failed kibana >/dev/null 2>&1 || true
+    systemctl enable kibana >/dev/null 2>&1 || true
+    systemctl restart kibana >/dev/null 2>&1 || true
+    if wait_for_port 5601 120 "Kibana port" && systemctl is-active --quiet kibana 2>/dev/null; then
+      log_ok "Started kibana"
+    else
+      systemctl reset-failed kibana >/dev/null 2>&1 || true
+      systemctl restart kibana >/dev/null 2>&1 || true
+      if wait_for_port 5601 120 "Kibana port" && systemctl is-active --quiet kibana 2>/dev/null; then
+        log_ok "Started kibana"
+      else
+        log_warn "kibana failed to become ready (check: systemctl status kibana && journalctl -u kibana -n 80 --no-pager)"
+      fi
+    fi
+  else
+    log_warn "kibana service unit not found; skipping start"
+  fi
+
+  for svc in suricata filebeat nmslex-manager nmslex-indexer; do
     if ! is_service_known "$svc"; then
       log_warn "$svc service unit not found; skipping start"
       continue
     fi
 
+    systemctl reset-failed "$svc" >/dev/null 2>&1 || true
     systemctl enable "$svc" >/dev/null 2>&1 || true
-    systemctl start "$svc"
+    systemctl restart "$svc" >/dev/null 2>&1 || true
     if systemctl is-active --quiet "$svc" 2>/dev/null; then
       log_ok "Started $svc"
     else
       log_warn "$svc failed to start (check: systemctl status $svc && journalctl -u $svc -n 50 --no-pager)"
     fi
   done
+
+  if is_service_known nmslex-dashboard; then
+    local dashboard_port
+    dashboard_port=$(get_configured_dashboard_port)
+    systemctl reset-failed nmslex-dashboard >/dev/null 2>&1 || true
+    systemctl enable nmslex-dashboard >/dev/null 2>&1 || true
+    systemctl restart nmslex-dashboard >/dev/null 2>&1 || true
+    if wait_for_port "$dashboard_port" 30 "Dashboard port" && systemctl is-active --quiet nmslex-dashboard 2>/dev/null; then
+      log_ok "Started nmslex-dashboard"
+    else
+      log_warn "nmslex-dashboard failed to become ready on port ${dashboard_port} (check: systemctl status nmslex-dashboard && journalctl -u nmslex-dashboard -n 50 --no-pager)"
+    fi
+  else
+    log_warn "nmslex-dashboard service unit not found; skipping start"
+  fi
   progress_bar $step $steps "Overall"
 
   # Create agent install script
@@ -1330,11 +1431,13 @@ do_status() {
 
   # Port checks
   echo -e "  ${WHITE}${BOLD}🌐 Port Status${NC}"
-  local ports=("9200:Elasticsearch" "5601:Kibana" "7356:Dashboard")
+  local dashboard_port
+  dashboard_port=$(get_configured_dashboard_port)
+  local ports=("9200:Elasticsearch" "5601:Kibana" "${dashboard_port}:Dashboard")
   for entry in "${ports[@]}"; do
     local port="${entry%%:*}"
     local name="${entry##*:}"
-    if ss -tlnp | grep -q ":${port} "; then
+    if ss -tlnH 2>/dev/null | awk '{print $4}' | grep -Eq "(:|\])${port}$"; then
       echo -e "  ${GREEN}✔${NC} ${name} port ${CYAN}${port}${NC} ${GREEN}listening${NC}"
     else
       echo -e "  ${RED}✘${NC} ${name} port ${CYAN}${port}${NC} ${RED}not listening${NC}"
@@ -1392,6 +1495,7 @@ do_status() {
       if [[ "$answer" =~ ^[Yy]$ ]]; then
         for svc in "${failed_svcs[@]}"; do
           echo -e "  ${CYAN}▸${NC} Restarting ${WHITE}${svc}${NC}..."
+          systemctl reset-failed "$svc" >/dev/null 2>&1 || true
 
           # Pre-restart fixes
           if [ "$svc" = "elasticsearch" ]; then
@@ -1408,10 +1512,21 @@ do_status() {
           fi
 
           if [ "$svc" = "kibana" ]; then
+            wait_for_http "http://localhost:9200" 120 "Elasticsearch API" >/dev/null 2>&1 || true
             fix_kibana_runtime_env
           fi
 
-          systemctl restart "$svc" 2>/dev/null
+          if [ "$svc" = "nmslex-dashboard" ]; then
+            local dashboard_port
+            dashboard_port=$(get_configured_dashboard_port)
+            systemctl restart "$svc" 2>/dev/null
+            wait_for_port "$dashboard_port" 30 "Dashboard port" >/dev/null 2>&1 || true
+          elif [ "$svc" = "kibana" ]; then
+            systemctl restart "$svc" 2>/dev/null
+            wait_for_port 5601 120 "Kibana port" >/dev/null 2>&1 || true
+          else
+            systemctl restart "$svc" 2>/dev/null
+          fi
           sleep 3
 
           if systemctl is-active --quiet "$svc" 2>/dev/null; then
