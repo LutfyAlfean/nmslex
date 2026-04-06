@@ -220,13 +220,32 @@ get_repo_candidate_version() {
 
   if command -v repoquery >/dev/null 2>&1; then
     version=$(repoquery --quiet --latest-limit=1 --qf '%{version}' "$pkg" 2>/dev/null | head -n 1)
-    if [ -n "$version" ]; then
+    if [ -n "$version" ] && [ "$version" != "(null)" ]; then
       echo "$version"
       return 0
     fi
   fi
 
   return 1
+}
+
+is_package_installed() {
+  local pkg="$1"
+
+  if command -v dpkg-query >/dev/null 2>&1; then
+    dpkg-query -W -f='${Status}' "$pkg" 2>/dev/null | grep -q "install ok installed" && return 0
+  fi
+
+  if command -v rpm >/dev/null 2>&1; then
+    rpm -q "$pkg" >/dev/null 2>&1 && return 0
+  fi
+
+  return 1
+}
+
+is_service_known() {
+  local svc="$1"
+  systemctl list-unit-files --type=service 2>/dev/null | awk '{print $1}' | grep -qx "${svc}.service"
 }
 
 get_major_minor_version() {
@@ -633,37 +652,46 @@ SURICATAEOF
   repo_es_version=$(get_repo_candidate_version elasticsearch 2>/dev/null || true)
   repo_kb_version=$(get_repo_candidate_version kibana 2>/dev/null || true)
 
+  if [ -z "$repo_es_version" ]; then
+    log_err "Elasticsearch package candidate not found in repository"
+    log_err "Check internet/DNS and run: apt-get update && apt-cache policy elasticsearch"
+    exit 1
+  fi
+
+  if [ -z "$repo_kb_version" ]; then
+    log_err "Kibana package candidate not found in repository"
+    log_err "Check internet/DNS and run: apt-get update && apt-cache policy kibana"
+    exit 1
+  fi
+
   if [ -z "$installed_es_version" ] && [ -n "$installed_kb_version" ] && [ -n "$repo_es_version" ]; then
     ensure_elastic_stack_compatibility "Repository vs installed Kibana" "$repo_es_version" "$installed_kb_version"
   fi
 
-  if [ -n "$repo_es_version" ]; then
-    log_info "Elasticsearch candidate version: ${WHITE}${repo_es_version}${NC}"
-  fi
-  if [ -n "$repo_kb_version" ]; then
-    log_info "Kibana candidate version: ${WHITE}${repo_kb_version}${NC}"
-  fi
+  log_info "Elasticsearch candidate version: ${WHITE}${repo_es_version}${NC}"
+  log_info "Kibana candidate version: ${WHITE}${repo_kb_version}${NC}"
 
-  # Reliable installed check: dpkg -s returns 0 only if fully installed
   local es_installed=false
-  if dpkg -s elasticsearch >/dev/null 2>&1; then
-    es_installed=true
-  elif rpm -q elasticsearch >/dev/null 2>&1; then
+  if is_package_installed elasticsearch; then
     es_installed=true
   fi
 
   if [ "$es_installed" = false ]; then
     log_info "Installing Elasticsearch (this may take a few minutes)..."
-    if ! apt-get install -y elasticsearch 2>&1 | tail -5; then
+    if ! apt-get install -y elasticsearch; then
       log_err "Elasticsearch installation FAILED!"
       log_err "Try manually: sudo apt-get install -y elasticsearch"
       log_err "Check: sudo apt-get update && apt-cache policy elasticsearch"
       exit 1
     fi
-    # Verify it actually installed
-    if ! dpkg -s elasticsearch >/dev/null 2>&1; then
+    if ! is_package_installed elasticsearch; then
       log_err "Elasticsearch package not found after install attempt!"
       log_err "Check repository: apt-cache policy elasticsearch"
+      exit 1
+    fi
+    if ! is_service_known elasticsearch; then
+      log_err "elasticsearch.service not found after install attempt!"
+      log_err "Install seems incomplete/corrupt. Try: sudo apt-get install --reinstall -y elasticsearch"
       exit 1
     fi
     log_ok "Elasticsearch installed successfully"
@@ -713,21 +741,25 @@ ESEOF
   fi
 
   local kb_installed=false
-  if dpkg -s kibana >/dev/null 2>&1; then
-    kb_installed=true
-  elif rpm -q kibana >/dev/null 2>&1; then
+  if is_package_installed kibana; then
     kb_installed=true
   fi
 
   if [ "$kb_installed" = false ]; then
     log_info "Installing Kibana (this may take a few minutes)..."
-    if ! apt-get install -y kibana 2>&1 | tail -5; then
+    if ! apt-get install -y kibana; then
       log_err "Kibana installation FAILED!"
       log_err "Try manually: sudo apt-get install -y kibana"
+      log_err "Check: sudo apt-get update && apt-cache policy kibana"
       exit 1
     fi
-    if ! dpkg -s kibana >/dev/null 2>&1; then
+    if ! is_package_installed kibana; then
       log_err "Kibana package not found after install attempt!"
+      exit 1
+    fi
+    if ! is_service_known kibana; then
+      log_err "kibana.service not found after install attempt!"
+      log_err "Install seems incomplete/corrupt. Try: sudo apt-get install --reinstall -y kibana"
       exit 1
     fi
     log_ok "Kibana installed successfully"
@@ -977,12 +1009,17 @@ EOF
   systemctl daemon-reload
 
   for svc in elasticsearch kibana suricata filebeat nmslex-dashboard nmslex-manager nmslex-indexer; do
+    if ! is_service_known "$svc"; then
+      log_warn "$svc service unit not found; skipping start"
+      continue
+    fi
+
     systemctl enable "$svc" >/dev/null 2>&1 || true
-    systemctl start "$svc" 2>/dev/null || true
+    systemctl start "$svc"
     if systemctl is-active --quiet "$svc" 2>/dev/null; then
       log_ok "Started $svc"
     else
-      log_warn "$svc may need time to start (check: systemctl status $svc)"
+      log_warn "$svc failed to start (check: systemctl status $svc && journalctl -u $svc -n 50 --no-pager)"
     fi
   done
   progress_bar $step $steps "Overall"
@@ -1268,7 +1305,7 @@ do_status() {
       fi
       echo -e "  ${GREEN}✔${NC} ${WHITE}${svc}${NC} ${GREEN}running${NC}${DIM}${mem_mb}${NC}"
       echo -e "    ${DIM}since: ${uptime}${NC}"
-    elif systemctl is-enabled --quiet "$svc" 2>/dev/null; then
+    elif is_service_known "$svc"; then
       all_ok=false
       echo -e "  ${RED}✘${NC} ${WHITE}${svc}${NC} ${RED}stopped / failed${NC}"
       echo -e "    ${DIM}─── Recent logs ───${NC}"
@@ -1280,7 +1317,11 @@ do_status() {
         fi
       done
       echo -e "    ${DIM}───────────────────${NC}"
+    elif is_package_installed "$svc"; then
+      all_ok=false
+      echo -e "  ${YELLOW}─${NC} ${WHITE}${svc}${NC} ${YELLOW}package installed but service unit missing${NC}"
     else
+      all_ok=false
       echo -e "  ${YELLOW}─${NC} ${WHITE}${svc}${NC} ${YELLOW}not installed${NC}"
     fi
   done
