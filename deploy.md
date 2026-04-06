@@ -1,6 +1,6 @@
-# 🐼 NMSLEX — Panduan Deployment v2.3
+# 🐼 NMSLEX — Panduan Deployment v2.4
 
-Tutorial lengkap cara deploy NMSLEX di VM lokal.
+Tutorial lengkap cara deploy NMSLEX di VM lokal, step by step dari nol hingga berhasil.
 
 ---
 
@@ -13,24 +13,107 @@ Tutorial lengkap cara deploy NMSLEX di VM lokal.
 | CPU | 2 Core | 4 Core |
 | Disk | 50 GB SSD | 100 GB SSD |
 | Network | 1 interface aktif | 1 Gbps |
+| Internet | Wajib saat deploy | Untuk download packages |
+
+> ⚠️ **Pastikan VM terhubung ke internet** saat deploy pertama kali. Script perlu mendownload Elasticsearch, Kibana, Suricata, Node.js, dan dependencies lainnya.
 
 ---
 
-## Langkah 1: Clone Repository
+## 🚀 Panduan Deploy Pertama Kali (Step by Step)
+
+Ikuti langkah-langkah berikut **secara berurutan**. Jangan skip langkah apapun.
+
+### Langkah 1: Persiapan Sistem
+
+```bash
+# Update sistem
+sudo apt update && sudo apt upgrade -y
+
+# Pastikan git tersedia
+sudo apt install -y git curl wget
+```
+
+### Langkah 2: Clone Repository
 
 ```bash
 git clone https://github.com/LutfyAlfean/nmslex.git
 cd nmslex
 ```
 
-## Langkah 2: Jalankan Deploy Script
+### Langkah 3: Konfigurasi Environment (`.env`)
+
+File `.env` berisi konfigurasi lokal NMSLEX. Buat dari template yang disediakan:
+
+```bash
+# Copy template
+cp .env.example .env
+
+# Edit sesuai kebutuhan (opsional — default sudah siap pakai)
+nano .env
+```
+
+**Isi `.env.example`:**
+
+```bash
+# Dashboard
+NMSLEX_PORT=7356                              # Port web dashboard
+
+# Elasticsearch
+NMSLEX_ES_HOST=http://localhost:9200           # Alamat Elasticsearch
+
+# Kibana
+NMSLEX_KIBANA_HOST=http://localhost:5601       # Alamat Kibana
+
+# Suricata
+NMSLEX_SURICATA_LOG=/var/log/suricata/eve.json # Path log Suricata
+
+# Telegram Bot (opsional — bisa dikonfigurasi nanti via dashboard)
+# TELEGRAM_BOT_TOKEN=
+# TELEGRAM_CHAT_ID=
+```
+
+**Kapan perlu edit `.env`:**
+
+| Kondisi | Yang Diubah |
+|---------|------------|
+| Dashboard di port lain | `NMSLEX_PORT=8080` |
+| ES di server terpisah | `NMSLEX_ES_HOST=http://192.168.1.50:9200` |
+| Kibana di server terpisah | `NMSLEX_KIBANA_HOST=http://192.168.1.50:5601` |
+| Log Suricata di path custom | `NMSLEX_SURICATA_LOG=/custom/path/eve.json` |
+| Notifikasi Telegram | Isi `TELEGRAM_BOT_TOKEN` & `TELEGRAM_CHAT_ID` |
+
+> 💡 **Untuk deploy standar** (semua service di satu VM), **tidak perlu edit `.env`** — default sudah benar.
+
+### Langkah 4: Cek Network Interface
+
+Sebelum deploy, pastikan nama network interface Anda:
+
+```bash
+ip link show
+```
+
+Output contoh:
+```
+1: lo: <LOOPBACK,UP> ...
+2: eth0: <BROADCAST,MULTICAST,UP> ...     ← Gunakan ini
+3: ens33: <BROADCAST,MULTICAST,UP> ...    ← Atau ini (VMware)
+```
+
+> Default interface adalah `eth0`. Jika berbeda, gunakan flag `--interface`.
+
+### Langkah 5: Jalankan Deploy Script
 
 ```bash
 chmod +x deploy.sh
+
+# Opsi A: Default (interface eth0, port 7356)
 sudo ./deploy.sh
+
+# Opsi B: Custom interface & port
+sudo ./deploy.sh --interface ens33 --port 8080
 ```
 
-### Opsi Deploy
+**Opsi deploy lengkap:**
 
 | Flag | Deskripsi |
 |------|-----------|
@@ -42,50 +125,102 @@ sudo ./deploy.sh
 | `--uninstall` | Hapus seluruh instalasi NMSLEX |
 | `--help` | Tampilkan bantuan |
 
-Contoh:
-```bash
-sudo ./deploy.sh --interface ens33 --port 8080
+### Langkah 6: Tunggu Proses Deploy
+
+Script akan otomatis melakukan:
+
+```
+[1/9] System Dependencies    ✔ curl, wget, jq, git, build-essential
+[2/9] Node.js Runtime        ✔ Node.js 18 + serve
+[3/9] Suricata IDS           ✔ Install + konfigurasi rules
+[4/9] Elasticsearch          ✔ Validasi versi + install + konfigurasi
+[5/9] Kibana                 ✔ Validasi versi + install + auto-fix Node.js
+[6/9] Filebeat               ✔ Install + konfigurasi log shipping
+[7/9] Build Dashboard        ✔ npm install + vite build
+[8/9] Systemd Services       ✔ Buat & enable semua service
+[9/9] Start & Credentials    ✔ Start semua + generate admin password
 ```
 
-## Langkah 3: Apa yang Terjadi Saat Deploy
+> ⏱️ Proses deploy memakan waktu **10–30 menit** tergantung kecepatan internet dan spesifikasi VM.
 
-Script `deploy.sh` v2.3 akan otomatis:
+### Langkah 7: Simpan Credentials
 
-1. ✅ Install system dependencies (curl, wget, jq, git, build-essential)
-2. ✅ Install Node.js 18 + `serve` (static file server)
-3. ✅ Install & konfigurasi Suricata IDS
-4. ✅ **Validasi kompatibilitas versi** Elasticsearch & Kibana
-5. ✅ Install & konfigurasi Elasticsearch 8.x (dengan sanitasi single-node config)
-6. ✅ Install & konfigurasi Kibana (dengan **auto-fix environment Node.js**)
-7. ✅ Install & konfigurasi Filebeat
-8. ✅ Build NMSLEX Dashboard (React → production bundle)
-9. ✅ Generate konfigurasi & management scripts
-10. ✅ Buat systemd services
-11. ✅ Start semua service & generate admin credentials (hashed SHA-256)
+Setelah deploy selesai, **catat credentials yang ditampilkan**:
 
-## Langkah 4: Verifikasi
+```
+┌─────────────────────────────────────────┐
+│  🔐 Admin Credentials                   │
+│                                         │
+│  Email:    adminlex@nmslex.com          │
+│  Password: <RANDOM_PASSWORD>            │
+│                                         │
+│  ⚠ Password hanya ditampilkan SEKALI!   │
+└─────────────────────────────────────────┘
+```
+
+> 🔒 Password di-hash SHA-256 dan disimpan di `/etc/nmslex/admin.credentials` (root-only). **Tidak bisa di-recover** — hanya ditampilkan saat deploy.
+
+### Langkah 8: Verifikasi Semua Service
 
 ```bash
-# Cara tercepat — cek semua service sekaligus
 sudo ./deploy.sh --status
-
-# Atau manual per-service
-sudo systemctl status nmslex-dashboard
-sudo systemctl status elasticsearch
-sudo systemctl status kibana
-sudo systemctl status suricata
-sudo systemctl status filebeat
 ```
 
-## Langkah 5: Akses Dashboard
+Output yang diharapkan:
+```
+🔍 NMSLEX Service Health Check
+  ✔ elasticsearch running (XXX MB)
+  ✔ kibana running (XXX MB)
+  ✔ suricata running (XXX MB)
+  ✔ filebeat running (XXX MB)
+  ✔ nmslex-dashboard running (XXX MB)
+  ✔ nmslex-manager running (XXX MB)
+
+🌐 Port Status
+  ✔ Elasticsearch port 9200 listening
+  ✔ Kibana port 5601 listening
+  ✔ Dashboard port 7356 listening
+```
+
+> Jika ada service yang gagal, pilih `y` saat ditawarkan auto-restart.
+
+### Langkah 9: Akses Dashboard
+
+Buka browser dan akses:
 
 ```
 http://<IP_VM>:7356
 ```
 
-Login dengan credentials yang ditampilkan saat deploy selesai.
+Login dengan credentials dari Langkah 7.
 
-> 💡 Credentials disimpan sebagai hash di `/etc/nmslex/admin.credentials` (root-only). Password hanya ditampilkan **sekali** saat deploy.
+### Langkah 10: (Opsional) Buka Firewall
+
+Jika dashboard tidak bisa diakses dari luar VM:
+
+```bash
+# Ubuntu/Debian (UFW)
+sudo ufw allow 7356/tcp
+sudo ufw allow 9200/tcp   # Elasticsearch (opsional)
+sudo ufw allow 5601/tcp   # Kibana (opsional)
+
+# CentOS/Rocky (firewalld)
+sudo firewall-cmd --add-port=7356/tcp --permanent
+sudo firewall-cmd --reload
+```
+
+---
+
+## ✅ Checklist Deploy Berhasil
+
+Gunakan checklist ini untuk memastikan deploy sukses:
+
+- [ ] `sudo ./deploy.sh --status` → semua service ✔ running
+- [ ] Port 9200, 5601, 7356 listening
+- [ ] `http://<IP>:7356` bisa diakses di browser
+- [ ] Login berhasil dengan credentials
+- [ ] Dashboard menampilkan data (stat cards, charts)
+- [ ] Health indicator di login page menunjukkan hijau
 
 ---
 
@@ -389,5 +524,5 @@ sudo systemctl daemon-reload
 ---
 
 <p align="center">
-  © 2026 Muhammad Lutfi Alfian — NMSLEX v2.3
+  © 2026 Muhammad Lutfi Alfian — NMSLEX v2.4
 </p>
