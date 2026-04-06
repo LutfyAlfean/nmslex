@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-2.2.0-cyan?style=flat-square" />
+  <img src="https://img.shields.io/badge/version-2.3.0-cyan?style=flat-square" />
   <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" />
   <img src="https://img.shields.io/badge/node-18%2B-blue?style=flat-square" />
   <img src="https://img.shields.io/badge/platform-Linux-orange?style=flat-square" />
@@ -48,6 +48,8 @@
 | ⚙️ **Konfigurasi Terpusat** | Pengaturan semua komponen dari satu tempat |
 | 🏥 **Health Check** | Cek status semua service dari CLI & dashboard |
 | 🔄 **Auto-Restart** | Otomatis restart service yang mati via `--status` |
+| 🔀 **Version Compatibility** | Validasi otomatis versi Elasticsearch & Kibana |
+| 🔧 **Kibana Auto-Fix** | Sanitasi environment Node.js untuk Kibana |
 
 ---
 
@@ -148,6 +150,76 @@ Perintah `--status` akan:
 - ✅ Cek Elasticsearch cluster health
 - ✅ **Auto-restart** service yang mati (dengan konfirmasi)
 - ✅ Fix otomatis masalah umum ES (vm.max_map_count, single-node config)
+- ✅ **Kibana auto-fix** — sanitasi `NODE_OPTIONS`/`NODE_PATH` yang bentrok dengan bundled Node.js
+
+### Update Kode (Setelah `git pull`)
+
+```bash
+cd /home/<user>/nmslex
+git pull origin main
+sudo ./deploy.sh --rebuild
+```
+
+> ⚠️ **Tidak perlu** `--uninstall` atau clone ulang. Cukup `git pull` + `--rebuild`.
+
+---
+
+## 🔀 Version Compatibility Check
+
+Deploy script v2.3 secara otomatis memeriksa kompatibilitas versi antara **Elasticsearch** dan **Kibana** sebelum install:
+
+- ✅ Cek versi yang sudah terinstall (via `dpkg-query` / `rpm`)
+- ✅ Cek versi kandidat dari repository (via `apt-cache` / `repoquery`)
+- ✅ Bandingkan **major.minor** — jika mismatch, deploy **berhenti** dengan pesan jelas
+- ✅ Cek ulang setelah install untuk memastikan konsistensi
+
+Contoh output jika mismatch:
+```
+  ✘ Elastic Stack version mismatch detected
+    Elasticsearch: 8.13.4
+    Kibana:        8.12.1
+    Gunakan major.minor yang sama, misalnya 8.13.x dengan 8.13.x
+```
+
+### Fix Versi Mismatch
+
+```bash
+# Cek versi saat ini
+dpkg -l elasticsearch | tail -1
+dpkg -l kibana | tail -1
+
+# Install Kibana versi yang sama dengan ES
+sudo apt-get install kibana=8.13.4
+sudo systemctl restart kibana
+```
+
+---
+
+## 🔧 Kibana Auto-Fix
+
+Jika Kibana gagal start karena **konflik Node.js environment**, deploy script otomatis:
+
+1. **Membuat systemd override** di `/etc/systemd/system/kibana.service.d/nmslex.conf`
+2. **Menghapus** `NODE_OPTIONS` dan `NODE_PATH` dari `/etc/default/kibana`
+3. **Reload** systemd daemon
+
+Ini mengatasi masalah ketika Node.js 18 (untuk dashboard) me-inject environment variables yang tidak kompatibel dengan bundled Node.js Kibana.
+
+### Fix Manual (jika belum update deploy.sh)
+
+```bash
+sudo mkdir -p /etc/systemd/system/kibana.service.d
+cat << 'EOF' | sudo tee /etc/systemd/system/kibana.service.d/nmslex.conf
+[Service]
+Environment="NODE_OPTIONS="
+Environment="NODE_PATH="
+UnsetEnvironment=NODE_OPTIONS
+UnsetEnvironment=NODE_PATH
+EOF
+sudo sed -i '/^NODE_OPTIONS=/d;/^NODE_PATH=/d' /etc/default/kibana
+sudo systemctl daemon-reload
+sudo systemctl restart kibana
+```
 
 ---
 
@@ -168,17 +240,19 @@ Halaman login menampilkan **status backend services** secara real-time:
 - Bisa di-expand untuk melihat detail setiap service
 - Membantu debug jika dashboard blank setelah login
 
-### Mengganti Secret `NMSLEX_HOST`
+### Keamanan Repository
 
-Secret `NMSLEX_HOST` digunakan oleh Edge Function health-check untuk mengecek service di VM. Cara mengubahnya:
+Repository ini **aman untuk di-clone** oleh siapa saja:
 
-1. Buka **Lovable Editor** → project NMSLEX
-2. Minta AI: *"Update secret NMSLEX_HOST dengan IP baru"*
-3. Atau gunakan panel **Settings → Secrets** di Lovable Cloud
-4. Isi dengan IP/hostname VM (contoh: `http://192.168.1.100`)
-5. Edge Function akan otomatis menggunakan nilai baru
+| Item | Status |
+|------|--------|
+| API keys / secrets | ❌ Tidak ada yang di-hardcode |
+| `.env` file | ❌ Tidak disertakan (hanya `.env.example`) |
+| Admin password | ❌ Di-generate saat deploy, bukan di repo |
+| Edge functions | ✅ Kode saja, secret disimpan terpisah |
+| `docs-site/` | ✅ Halaman statis publik, tidak ada data sensitif |
 
-> ⚠️ Format: `http://<IP_VM>` (tanpa trailing slash, tanpa port). Port ditambahkan otomatis oleh health-check function.
+> Folder `supabase/functions/` berisi kode edge function untuk fitur health-check dan manajemen user pada versi cloud/hosted. Untuk deployment self-hosted di VM, fitur ini **tidak diperlukan** — semua berjalan lokal.
 
 ---
 
