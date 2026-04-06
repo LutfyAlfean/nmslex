@@ -15,6 +15,41 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const adminClient = createClient(supabaseUrl, serviceRoleKey);
+
+    const body = await req.json();
+    const { action, ...payload } = body;
+
+    // Bootstrap: create first admin if no admins exist
+    if (action === "bootstrap_admin") {
+      const { data: existingAdmins } = await adminClient
+        .from("user_roles")
+        .select("id")
+        .eq("role", "admin")
+        .limit(1);
+      
+      if (existingAdmins && existingAdmins.length > 0) {
+        return new Response(JSON.stringify({ error: "Admin already exists" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { email, password, name } = payload;
+      const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
+        email, password, email_confirm: true, user_metadata: { name },
+      });
+      if (createError) {
+        return new Response(JSON.stringify({ error: createError.message }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      await adminClient.from("user_roles").insert({ user_id: newUser.user.id, role: "admin" });
+      await adminClient.from("profiles").update({ name }).eq("user_id", newUser.user.id);
+      return new Response(JSON.stringify({ success: true, user_id: newUser.user.id }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // Verify the caller is an admin
     const authHeader = req.headers.get("Authorization");
@@ -39,8 +74,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Check admin role using service role client
-    const adminClient = createClient(supabaseUrl, serviceRoleKey);
+    // Check admin role
     const { data: roleData } = await adminClient
       .from("user_roles")
       .select("role")
@@ -57,8 +91,6 @@ Deno.serve(async (req) => {
         }
       );
     }
-
-    const { action, ...payload } = await req.json();
 
     if (action === "create_user") {
       const { email, password, name, role } = payload;
