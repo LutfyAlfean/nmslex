@@ -316,6 +316,13 @@ setup.ilm.enabled: false
 FBEOF
   log_ok "Filebeat config reset"
 
+  ELASTICSEARCH_CONFIG="/etc/elasticsearch/elasticsearch.yml"
+  if [ -f "$ELASTICSEARCH_CONFIG" ]; then
+    sed -i '/^cluster\.initial_master_nodes:/d' "$ELASTICSEARCH_CONFIG"
+    sed -i '/^discovery\.seed_hosts:/d' "$ELASTICSEARCH_CONFIG"
+    log_ok "Elasticsearch single-node conflicts cleaned"
+  fi
+
   log_step "Restarting Services"
   for svc in suricata elasticsearch kibana filebeat nmslex-dashboard nmslex-manager nmslex-indexer; do
     systemctl restart "$svc" 2>/dev/null || true
@@ -938,6 +945,11 @@ read_env_value() {
   value="${value#\'}"
   value="${value%\'}"
   printf "%s" "$value"
+}
+
+hash_secret_value() {
+  local value="$1"
+  printf "%s" "$value" | sha256sum | awk '{print $1}'
 }
 
 sync_admin_credentials() {
