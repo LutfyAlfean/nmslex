@@ -12,7 +12,7 @@ NMSLEX_DIR="/opt/nmslex"
 NMSLEX_CONF="/etc/nmslex"
 NMSLEX_LOG="/var/log/nmslex"
 ELASTIC_VERSION="8.13.0"
-INTERFACE="eth0"
+INTERFACE=""
 ACTION="install"
 
 export DEBIAN_FRONTEND=noninteractive
@@ -118,7 +118,7 @@ show_usage() {
   echo -e "    ${CYAN}--status${NC}    Check status of all services"
   echo ""
   echo -e "  ${WHITE}${BOLD}Options:${NC}"
-  echo -e "    ${CYAN}--interface${NC} <iface>  Network interface (default: eth0)"
+  echo -e "    ${CYAN}--interface${NC} <iface>  Network interface (auto-detected if omitted)"
   echo -e "    ${CYAN}--port${NC} <port>        Dashboard port (default: 7356)"
   echo -e "    ${CYAN}--help${NC}               Show this help"
   echo ""
@@ -127,7 +127,7 @@ show_usage() {
   echo -e "    ${DIM}sudo ./deploy.sh --rebuild${NC}               # Rebuild after code changes"
   echo -e "    ${DIM}sudo ./deploy.sh --reset${NC}                 # Reset configuration"
   echo -e "    ${DIM}sudo ./deploy.sh --uninstall${NC}             # Remove everything"
-  echo -e "    ${DIM}sudo ./deploy.sh --interface ens33${NC}       # Custom interface"
+  echo -e "    ${DIM}sudo ./deploy.sh --interface ens18${NC}       # Custom interface"
   echo ""
 }
 
