@@ -876,7 +876,28 @@ FBEOF
   SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
   log_info "Copying source files..."
   cp -r "${SCRIPT_DIR}"/* ${NMSLEX_DIR}/dashboard/ 2>/dev/null || true
+  # Copy hidden files like .env too
+  cp "${SCRIPT_DIR}"/.env ${NMSLEX_DIR}/dashboard/.env 2>/dev/null || true
+  cp "${SCRIPT_DIR}"/.env.example ${NMSLEX_DIR}/dashboard/.env.example 2>/dev/null || true
   cd ${NMSLEX_DIR}/dashboard
+
+  # Ensure .env exists with Supabase vars (required for Vite build)
+  if [ ! -f ".env" ]; then
+    if [ -f ".env.example" ]; then
+      log_info "Creating .env from .env.example..."
+      cp .env.example .env
+    fi
+  fi
+  # Verify critical Supabase env vars exist
+  if ! grep -q "VITE_SUPABASE_URL" .env 2>/dev/null; then
+    log_warn ".env missing VITE_SUPABASE_URL - adding from .env.example..."
+    if [ -f ".env.example" ]; then
+      grep "^VITE_SUPABASE" .env.example >> .env
+    else
+      log_err "No .env.example found! Dashboard will show blank page without Supabase vars."
+      log_err "Add VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY to .env"
+    fi
+  fi
 
   log_info "Installing node modules (this may take a minute)..."
   npm install 2>&1 | tail -3
