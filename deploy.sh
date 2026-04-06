@@ -1009,12 +1009,17 @@ EOF
   systemctl daemon-reload
 
   for svc in elasticsearch kibana suricata filebeat nmslex-dashboard nmslex-manager nmslex-indexer; do
+    if ! is_service_known "$svc"; then
+      log_warn "$svc service unit not found; skipping start"
+      continue
+    fi
+
     systemctl enable "$svc" >/dev/null 2>&1 || true
-    systemctl start "$svc" 2>/dev/null || true
+    systemctl start "$svc"
     if systemctl is-active --quiet "$svc" 2>/dev/null; then
       log_ok "Started $svc"
     else
-      log_warn "$svc may need time to start (check: systemctl status $svc)"
+      log_warn "$svc failed to start (check: systemctl status $svc && journalctl -u $svc -n 50 --no-pager)"
     fi
   done
   progress_bar $step $steps "Overall"
