@@ -263,6 +263,28 @@ ensure_elastic_stack_compatibility() {
   log_ok "$label compatible (${es_version} ↔ ${kb_version})"
 }
 
+fix_kibana_runtime_env() {
+  mkdir -p /etc/systemd/system/kibana.service.d
+  cat > /etc/systemd/system/kibana.service.d/nmslex.conf << 'KBSVC'
+[Service]
+Environment="NODE_OPTIONS="
+Environment="NODE_PATH="
+UnsetEnvironment=NODE_OPTIONS
+UnsetEnvironment=NODE_PATH
+KBSVC
+
+  mkdir -p /etc/default
+  if [ -f /etc/default/kibana ]; then
+    sed -i '/^NODE_OPTIONS=/d' /etc/default/kibana
+    sed -i '/^NODE_PATH=/d' /etc/default/kibana
+  else
+    touch /etc/default/kibana
+  fi
+
+  systemctl daemon-reload
+  log_ok "Kibana runtime environment sanitized"
+}
+
 # ═══════════════════════════════════════
 # UNINSTALL
 # ═══════════════════════════════════════
@@ -677,6 +699,7 @@ server.port: 5601
 elasticsearch.hosts: ["http://localhost:9200"]
 KBEOF
   fi
+  fix_kibana_runtime_env
   log_ok "Kibana configured"
   progress_bar $step $steps "Overall"
 
@@ -1293,6 +1316,10 @@ do_status() {
                 echo "discovery.type: single-node" >> "$es_yml"
               fi
             fi
+          fi
+
+          if [ "$svc" = "kibana" ]; then
+            fix_kibana_runtime_env
           fi
 
           systemctl restart "$svc" 2>/dev/null
