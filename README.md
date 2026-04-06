@@ -1,7 +1,7 @@
 # 🐼 NMSLEX — Network Management System
 
 <p align="center">
-  <img src="public/logo-panda.png" alt="NMSLEX Logo" width="180" />
+  <img src="public/logo.png" alt="NMSLEX Logo" width="180" />
 </p>
 
 <p align="center">
