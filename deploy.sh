@@ -1240,7 +1240,7 @@ export DEBIAN_FRONTEND=noninteractive
 NMSLEX_SERVER=""
 NMSLEX_PORT=9200
 AGENT_NAME=$(hostname)
-INTERFACE="eth0"
+INTERFACE=""
 LOG_PATHS="/var/log/syslog,/var/log/auth.log"
 
 while [[ $# -gt 0 ]]; do
@@ -1258,6 +1258,13 @@ if [ -z "$NMSLEX_SERVER" ]; then
   echo "Error: --server is required"
   echo "Usage: sudo ./nmslex-agent-install.sh --server <NMSLEX_SERVER_IP>"
   exit 1
+fi
+
+if [ -z "$INTERFACE" ]; then
+  INTERFACE=$(ip route show default 2>/dev/null | awk '{print $5; exit}')
+  [ -z "$INTERFACE" ] && INTERFACE=$(ip -o link show up 2>/dev/null | awk -F': ' '!/lo/{print $2; exit}')
+  [ -z "$INTERFACE" ] && INTERFACE="eth0"
+  echo "Auto-detected interface: $INTERFACE"
 fi
 
 echo "🐼 NMSLEX Agent Installer"
