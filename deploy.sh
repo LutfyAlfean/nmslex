@@ -1093,4 +1093,5 @@ case $ACTION in
   rebuild)    do_rebuild ;;
   reset)      do_reset ;;
   uninstall)  do_uninstall ;;
+  status)     do_status ;;
 esac
