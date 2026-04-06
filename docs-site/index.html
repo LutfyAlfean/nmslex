@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NMSLEX — Network Management System Documentation</title>
+  <meta name="description" content="NMSLEX adalah open-source Network Management System dengan Suricata IDS, Elasticsearch, dan dashboard monitoring interaktif. Dokumentasi lengkap." />
+  <link rel="canonical" href="https://nmslex.vercel.app" />
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐼</text></svg>" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "NMSLEX",
+    "applicationCategory": "NetworkApplication",
+    "operatingSystem": "Linux",
+    "description": "Open-source Network Management System with Suricata IDS, Elasticsearch, and interactive monitoring dashboard",
+    "author": { "@type": "Person", "name": "Muhammad Lutfi Alfian" },
+    "license": "MIT",
+    "softwareVersion": "2.1.0"
+  }
+  </script>
+</head>
+<body>
+  <!-- Navigation -->
+  <nav class="nav" id="nav">
+    <div class="nav-inner">
+      <a href="#" class="nav-logo">
+        <span class="nav-logo-icon">🐼</span>
+        <span class="nav-logo-text">NMSLEX</span>
+      </a>
+      <div class="nav-links" id="navLinks">
+        <a href="#features">Fitur</a>
+        <a href="#screenshots">Screenshots</a>
+        <a href="#architecture">Arsitektur</a>
+        <a href="#requirements">Requirements</a>
+        <a href="#quickstart">Quick Start</a>
+        <a href="#docs">Dokumentasi</a>
+      </div>
+      <a href="https://github.com/lutfialf/nmslex" class="btn btn-outline btn-sm" target="_blank" rel="noopener">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+        GitHub
+      </a>
+      <button class="nav-toggle" id="navToggle" aria-label="Toggle menu">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <header class="hero">
+    <div class="hero-bg">
+      <div class="hero-grid"></div>
+      <div class="hero-glow"></div>
+    </div>
+    <div class="hero-content">
+      <div class="hero-badge">🛡️ Open Source Network Security</div>
+      <h1 class="hero-title">
+        <span class="hero-icon">🐼</span>
+        NMSLEX
+      </h1>
+      <p class="hero-subtitle">Network Management System</p>
+      <p class="hero-desc">
+        Monitor, kelola, dan amankan jaringan Anda secara real-time.<br/>
+        Terintegrasi dengan <strong>Suricata IDS</strong>, <strong>Elasticsearch</strong>, dan <strong>Kibana</strong>.
+      </p>
+      <div class="hero-actions">
+        <a href="#quickstart" class="btn btn-primary btn-lg">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          Quick Start
+        </a>
+        <a href="https://github.com/lutfialf/nmslex" class="btn btn-outline btn-lg" target="_blank" rel="noopener">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+          View on GitHub
+        </a>
+      </div>
+      <div class="hero-stats">
+        <div class="hero-stat">
+          <span class="hero-stat-value">v2.1</span>
+          <span class="hero-stat-label">Latest Version</span>
+        </div>
+        <div class="hero-stat">
+          <span class="hero-stat-value">MIT</span>
+          <span class="hero-stat-label">License</span>
+        </div>
+        <div class="hero-stat">
+          <span class="hero-stat-value">50+</span>
+          <span class="hero-stat-label">Max Agents</span>
+        </div>
+        <div class="hero-stat">
+          <span class="hero-stat-value">1-Click</span>
+          <span class="hero-stat-label">Deploy</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Tech Stack Bar -->
+  <section class="tech-bar">
+    <div class="container">
+      <div class="tech-items">
+        <div class="tech-item">
+          <span class="tech-icon">⚛️</span>
+          <span>React</span>
+        </div>
+        <div class="tech-item">
+          <span class="tech-icon">🦈</span>
+          <span>Suricata</span>
+        </div>
+        <div class="tech-item">
+          <span class="tech-icon">🔍</span>
+          <span>Elasticsearch</span>
+        </div>
+        <div class="tech-item">
+          <span class="tech-icon">📊</span>
+          <span>Kibana</span>
+        </div>
+        <div class="tech-item">
+          <span class="tech-icon">📦</span>
+          <span>Filebeat</span>
+        </div>
+        <div class="tech-item">
+          <span class="tech-icon">🟢</span>
+          <span>Node.js</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section class="section" id="features">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-badge">Features</span>
+        <h2 class="section-title">Fitur Lengkap untuk Keamanan Jaringan</h2>
+        <p class="section-desc">Semua yang Anda butuhkan untuk monitoring dan keamanan jaringan dalam satu platform.</p>
+      </div>
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon">🛡️</div>
+          <h3>Deteksi Ancaman</h3>
+          <p>Real-time threat detection menggunakan Suricata rules. Deteksi intrusi, malware, dan anomali jaringan.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">📊</div>
+          <h3>Dashboard Monitoring</h3>
+          <p>Dashboard interaktif dengan grafik real-time untuk memantau seluruh jaringan dari satu tempat.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">📋</div>
+          <h3>Log Explorer</h3>
+          <p>Pencarian dan analisis log terpusat via Elasticsearch. Filter berdasarkan severity, IP, dan waktu.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🖥️</div>
+          <h3>Agent Management</h3>
+          <p>Kelola semua VM/host yang dimonitor. Lihat status, metrics, dan detail setiap agent.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🌐</div>
+          <h3>Network Topology</h3>
+          <p>Visualisasi topologi jaringan interaktif. Drag & drop nodes untuk mengatur layout.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">📱</div>
+          <h3>Telegram Bot</h3>
+          <p>Notifikasi realtime via Telegram untuk critical alerts. Setup mudah dari dashboard.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">👥</div>
+          <h3>User Management</h3>
+          <p>Kelola akun admin, operator, dan viewer. Role-based access control terintegrasi.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">📄</div>
+          <h3>PDF Reporting</h3>
+          <p>Export laporan keamanan profesional dalam format PDF. Jadwalkan laporan otomatis.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🔔</div>
+          <h3>Alert Notifications</h3>
+          <p>Sound alert dan badge counter realtime. Notifikasi berbeda berdasarkan severity level.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Screenshots -->
+  <section class="section section-dark" id="screenshots">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-badge">Screenshots</span>
+        <h2 class="section-title">Tampilan Dashboard</h2>
+        <p class="section-desc">Interface modern dan intuitif untuk monitoring jaringan Anda.</p>
+      </div>
+      <div class="screenshots-grid">
+        <div class="screenshot-card">
+          <div class="screenshot-label">Dashboard Overview</div>
+          <img src="assets/screenshot-dashboard.jpg" alt="NMSLEX Dashboard - Overview monitoring dengan grafik traffic dan tabel alerts" width="1280" height="720" loading="lazy" />
+        </div>
+        <div class="screenshot-card">
+          <div class="screenshot-label">Network Topology</div>
+          <img src="assets/screenshot-topology.jpg" alt="NMSLEX Network Topology - Visualisasi jaringan dengan nodes dan koneksi" width="1280" height="720" loading="lazy" />
+        </div>
+        <div class="screenshot-card">
+          <div class="screenshot-label">Security Alerts</div>
+          <img src="assets/screenshot-alerts.jpg" alt="NMSLEX Alerts - Tabel log keamanan dengan filter severity" width="1280" height="720" loading="lazy" />
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Architecture -->
+  <section class="section" id="architecture">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-badge">Architecture</span>
+        <h2 class="section-title">Arsitektur Sistem</h2>
+        <p class="section-desc">Stack terintegrasi untuk monitoring dan keamanan end-to-end.</p>
+      </div>
+      <div class="arch-diagram">
+        <div class="arch-layer arch-layer-top">
+          <div class="arch-box arch-primary">
+            <span class="arch-label">🐼 NMSLEX Dashboard</span>
+            <span class="arch-sublabel">React + TypeScript (Port 7356)</span>
+          </div>
+        </div>
+        <div class="arch-connector">▼</div>
+        <div class="arch-layer arch-layer-mid">
+          <div class="arch-box">
+            <span class="arch-label">🦈 Suricata</span>
+            <span class="arch-sublabel">IDS/IPS</span>
+          </div>
+          <div class="arch-box">
+            <span class="arch-label">🔍 Elasticsearch</span>
+            <span class="arch-sublabel">Port 9200</span>
+          </div>
+          <div class="arch-box">
+            <span class="arch-label">📊 Kibana</span>
+            <span class="arch-sublabel">Port 5601</span>
+          </div>
+        </div>
+        <div class="arch-connector">▼</div>
+        <div class="arch-layer">
+          <div class="arch-box arch-secondary">
+            <span class="arch-label">📦 Filebeat</span>
+            <span class="arch-sublabel">Log Collection & Shipping</span>
+          </div>
+        </div>
+        <div class="arch-connector">▼</div>
+        <div class="arch-layer arch-layer-bottom">
+          <div class="arch-box arch-agent">
+            <span class="arch-label">🖥️ Agent 1</span>
+          </div>
+          <div class="arch-box arch-agent">
+            <span class="arch-label">🖥️ Agent 2</span>
+          </div>
+          <div class="arch-box arch-agent">
+            <span class="arch-label">🖥️ Agent 3</span>
+          </div>
+          <div class="arch-box arch-agent">
+            <span class="arch-label">🖥️ Agent N</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="services-table">
+        <h3>Systemd Services</h3>
+        <table>
+          <thead>
+            <tr><th>Service</th><th>Port</th><th>Fungsi</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>nmslex-dashboard</code></td><td>7356</td><td>Web UI Dashboard</td></tr>
+            <tr><td><code>nmslex-manager</code></td><td>—</td><td>Service orchestration & health check</td></tr>
+            <tr><td><code>nmslex-indexer</code></td><td>—</td><td>Log rotation & indexing</td></tr>
+            <tr><td><code>elasticsearch</code></td><td>9200</td><td>Search engine & data store</td></tr>
+            <tr><td><code>kibana</code></td><td>5601</td><td>Data visualization</td></tr>
+            <tr><td><code>suricata</code></td><td>—</td><td>IDS/IPS engine</td></tr>
+            <tr><td><code>filebeat</code></td><td>—</td><td>Log collection agent</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Requirements -->
+  <section class="section section-dark" id="requirements">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-badge">Requirements</span>
+        <h2 class="section-title">System Requirements</h2>
+        <p class="section-desc">Spesifikasi minimal dan rekomendasi untuk deployment.</p>
+      </div>
+      <div class="req-grid">
+        <div class="req-card req-server">
+          <h3>🖥️ Server (Master Node)</h3>
+          <table>
+            <thead>
+              <tr><th>Agents</th><th>vCPU</th><th>RAM</th><th>Disk</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>1–5</td><td>2</td><td>4 GB</td><td>50 GB SSD</td></tr>
+              <tr><td>6–10</td><td>4</td><td>8 GB</td><td>100 GB SSD</td></tr>
+              <tr><td>11–20</td><td>4</td><td>16 GB</td><td>200 GB SSD</td></tr>
+              <tr><td>21–50</td><td>8</td><td>32 GB</td><td>500 GB SSD</td></tr>
+              <tr><td>50+</td><td>16</td><td>64 GB</td><td>1 TB SSD</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="req-card req-agent">
+          <h3>📡 Agent (Per Host)</h3>
+          <table>
+            <thead>
+              <tr><th>Komponen</th><th>Minimum</th><th>Rekomendasi</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>vCPU</td><td>1</td><td>1</td></tr>
+              <tr><td>RAM</td><td>512 MB</td><td>1 GB</td></tr>
+              <tr><td>Disk</td><td>5 GB</td><td>10 GB</td></tr>
+              <tr><td>Network</td><td>100 Mbps</td><td>1 Gbps</td></tr>
+            </tbody>
+          </table>
+          <p class="req-note">Agent sangat ringan — hanya menjalankan Filebeat dan heartbeat script.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Quick Start -->
+  <section class="section" id="quickstart">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-badge">Quick Start</span>
+        <h2 class="section-title">Mulai dalam 3 Langkah</h2>
+        <p class="section-desc">Deploy NMSLEX di VM lokal dengan satu perintah.</p>
+      </div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-number">1</div>
+          <div class="step-content">
+            <h3>Clone Repository</h3>
+            <pre><code>git clone https://github.com/lutfialf/nmslex.git
+cd nmslex</code></pre>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-number">2</div>
+          <div class="step-content">
+            <h3>Jalankan Deploy Script</h3>
+            <pre><code>chmod +x deploy.sh
+sudo ./deploy.sh</code></pre>
+            <p class="step-note">Script akan otomatis install semua dependencies, build dashboard, dan start services.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-number">3</div>
+          <div class="step-content">
+            <h3>Akses Dashboard</h3>
+            <pre><code>http://&lt;IP_SERVER&gt;:7356</code></pre>
+            <p class="step-note">Login dengan credentials yang ditampilkan saat deploy selesai.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="mgmt-commands">
+        <h3>Management Commands</h3>
+        <div class="cmd-grid">
+          <div class="cmd-card">
+            <code>sudo ./deploy.sh --rebuild</code>
+            <span>Rebuild setelah perubahan kode</span>
+          </div>
+          <div class="cmd-card">
+            <code>sudo ./deploy.sh --reset</code>
+            <span>Reset konfigurasi ke default</span>
+          </div>
+          <div class="cmd-card">
+            <code>sudo ./deploy.sh --uninstall</code>
+            <span>Hapus seluruh instalasi</span>
+          </div>
+          <div class="cmd-card">
+            <code>sudo ./deploy.sh --interface ens33</code>
+            <span>Deploy dengan interface custom</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Agent Install -->
+  <section class="section section-dark" id="agent">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-badge">Agent</span>
+        <h2 class="section-title">Install Agent di VM Target</h2>
+        <p class="section-desc">Tambahkan monitoring ke setiap VM/host dengan agent ringan.</p>
+      </div>
+      <div class="agent-steps">
+        <pre><code><span class="code-comment"># Copy script dari server</span>
+scp user@nmslex-server:/opt/nmslex/scripts/nmslex-agent-install.sh .
+
+<span class="code-comment"># Install agent</span>
+sudo ./nmslex-agent-install.sh --server 192.168.1.100
+
+<span class="code-comment"># Dengan opsi lengkap</span>
+sudo ./nmslex-agent-install.sh \
+  --server 192.168.1.100 \
+  --name web-server-01 \
+  --interface ens33 \
+  --log-paths "/var/log/nginx/access.log,/var/log/nginx/error.log"
+
+<span class="code-comment"># Verifikasi</span>
+sudo systemctl status nmslex-agent
+sudo /opt/nmslex-agent/bin/nmslex-agent test-connection</code></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- Docs Links -->
+  <section class="section" id="docs">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-badge">Documentation</span>
+        <h2 class="section-title">Dokumentasi Lengkap</h2>
+      </div>
+      <div class="docs-grid">
+        <a href="https://github.com/lutfialf/nmslex/blob/main/README.md" class="doc-card" target="_blank" rel="noopener">
+          <div class="doc-icon">📖</div>
+          <h3>README</h3>
+          <p>Overview lengkap, fitur, arsitektur, dan resource requirements.</p>
+        </a>
+        <a href="https://github.com/lutfialf/nmslex/blob/main/deploy.md" class="doc-card" target="_blank" rel="noopener">
+          <div class="doc-icon">🚀</div>
+          <h3>Panduan Deployment</h3>
+          <p>Tutorial step-by-step deploy di VM lokal termasuk troubleshooting.</p>
+        </a>
+        <a href="https://github.com/lutfialf/nmslex/blob/main/agent.md" class="doc-card" target="_blank" rel="noopener">
+          <div class="doc-icon">🖥️</div>
+          <h3>Panduan Agent</h3>
+          <p>Cara install dan manage agent di VM yang ingin dimonitor.</p>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-content">
+        <div class="footer-brand">
+          <span class="footer-logo">🐼 NMSLEX</span>
+          <p>Protecting your network, one packet at a time.</p>
+        </div>
+        <div class="footer-links">
+          <h4>Links</h4>
+          <a href="https://github.com/lutfialf/nmslex" target="_blank" rel="noopener">GitHub</a>
+          <a href="#quickstart">Quick Start</a>
+          <a href="#docs">Dokumentasi</a>
+        </div>
+        <div class="footer-links">
+          <h4>Stack</h4>
+          <a href="https://suricata.io" target="_blank" rel="noopener">Suricata</a>
+          <a href="https://elastic.co" target="_blank" rel="noopener">Elasticsearch</a>
+          <a href="https://elastic.co/kibana" target="_blank" rel="noopener">Kibana</a>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <p>© 2026 Muhammad Lutfi Alfian. All rights reserved.</p>
+        <p>MIT License</p>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // Navbar scroll
+    window.addEventListener('scroll', () => {
+      document.getElementById('nav').classList.toggle('nav-scrolled', window.scrollY > 50);
+    });
+
+    // Mobile menu
+    document.getElementById('navToggle').addEventListener('click', () => {
+      document.getElementById('navLinks').classList.toggle('nav-links-open');
+    });
+
+    // Smooth scroll
+    document.querySelectorAll('a[href^="#"]').forEach(a => {
+      a.addEventListener('click', e => {
+        e.preventDefault();
+        const t = document.querySelector(a.getAttribute('href'));
+        if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        document.getElementById('navLinks').classList.remove('nav-links-open');
+      });
+    });
+
+    // Scroll reveal
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('revealed'); });
+    }, { threshold: 0.1 });
+    document.querySelectorAll('.feature-card, .screenshot-card, .step, .doc-card, .req-card, .cmd-card').forEach(el => {
+      el.classList.add('reveal');
+      observer.observe(el);
+    });
+  </script>
+</body>
+</html>
