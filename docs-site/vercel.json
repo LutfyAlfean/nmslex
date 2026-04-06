@@ -1,5 +1,7 @@
 {
   "rewrites": [
+    { "source": "/rules", "destination": "/rules/index.html" },
+    { "source": "/rules/(.*)", "destination": "/rules/index.html" },
     { "source": "/(.*)", "destination": "/index.html" }
   ],
   "headers": [
