@@ -220,13 +220,32 @@ get_repo_candidate_version() {
 
   if command -v repoquery >/dev/null 2>&1; then
     version=$(repoquery --quiet --latest-limit=1 --qf '%{version}' "$pkg" 2>/dev/null | head -n 1)
-    if [ -n "$version" ]; then
+    if [ -n "$version" ] && [ "$version" != "(null)" ]; then
       echo "$version"
       return 0
     fi
   fi
 
   return 1
+}
+
+is_package_installed() {
+  local pkg="$1"
+
+  if command -v dpkg-query >/dev/null 2>&1; then
+    dpkg-query -W -f='${Status}' "$pkg" 2>/dev/null | grep -q "install ok installed" && return 0
+  fi
+
+  if command -v rpm >/dev/null 2>&1; then
+    rpm -q "$pkg" >/dev/null 2>&1 && return 0
+  fi
+
+  return 1
+}
+
+is_service_known() {
+  local svc="$1"
+  systemctl list-unit-files --type=service 2>/dev/null | awk '{print $1}' | grep -qx "${svc}.service"
 }
 
 get_major_minor_version() {
