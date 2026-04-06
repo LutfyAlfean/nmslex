@@ -58,7 +58,8 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { action, ...payload } = await req.json();
+    const body = await req.json();
+    const { action, ...payload } = body;
 
     if (action === "create_user") {
       const { email, password, name, role } = payload;
