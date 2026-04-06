@@ -1144,10 +1144,56 @@ do_status() {
     echo -e "  ${RED}│  ${WHITE}${BOLD}⚠ Some services need attention${NC}${RED}            │${NC}"
     echo -e "  ${RED}└──────────────────────────────────────────┘${NC}"
     echo ""
-    echo -e "  ${DIM}Tips:${NC}"
-    echo -e "  ${DIM}  sudo systemctl restart <service>${NC}"
-    echo -e "  ${DIM}  sudo journalctl -u <service> -f${NC}"
-    echo -e "  ${DIM}  sudo ./deploy.sh --reset${NC}"
+
+    # Collect failed services
+    local failed_svcs=()
+    for svc in "${services[@]}"; do
+      if systemctl is-enabled --quiet "$svc" 2>/dev/null && ! systemctl is-active --quiet "$svc" 2>/dev/null; then
+        failed_svcs+=("$svc")
+      fi
+    done
+
+    if [ ${#failed_svcs[@]} -gt 0 ]; then
+      echo ""
+      echo -e "  ${YELLOW}${BOLD}Auto-restart failed services? [y/N]${NC}"
+      read -r -p "  > " answer
+      if [[ "$answer" =~ ^[Yy]$ ]]; then
+        for svc in "${failed_svcs[@]}"; do
+          echo -e "  ${CYAN}▸${NC} Restarting ${WHITE}${svc}${NC}..."
+
+          # Pre-restart fixes
+          if [ "$svc" = "elasticsearch" ]; then
+            # Fix common ES issues
+            sysctl -w vm.max_map_count=262144 >/dev/null 2>&1
+            local es_yml="/etc/elasticsearch/elasticsearch.yml"
+            if [ -f "$es_yml" ]; then
+              sed -i '/^cluster\.initial_master_nodes/d' "$es_yml"
+              sed -i '/^discovery\.seed_hosts/d' "$es_yml"
+              if ! grep -q "^discovery.type:" "$es_yml"; then
+                echo "discovery.type: single-node" >> "$es_yml"
+              fi
+            fi
+          fi
+
+          systemctl restart "$svc" 2>/dev/null
+          sleep 3
+
+          if systemctl is-active --quiet "$svc" 2>/dev/null; then
+            echo -e "  ${GREEN}✔${NC} ${svc} ${GREEN}restarted successfully${NC}"
+          else
+            echo -e "  ${RED}✘${NC} ${svc} ${RED}still failing${NC}"
+            echo -e "    ${DIM}Check: sudo journalctl -u ${svc} -n 30 --no-pager${NC}"
+          fi
+        done
+        echo ""
+        echo -e "  ${DIM}Run ${CYAN}sudo ./deploy.sh --status${NC} ${DIM}again to verify${NC}"
+      fi
+    else
+      echo -e "  ${DIM}Tips:${NC}"
+      echo -e "  ${DIM}  sudo systemctl restart <service>${NC}"
+      echo -e "  ${DIM}  sudo journalctl -u <service> -f${NC}"
+      echo -e "  ${DIM}  sudo ./deploy.sh --reset${NC}"
+    fi
   fi
   echo ""
 }
