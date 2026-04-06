@@ -925,6 +925,94 @@ AGENTEOF
 # ═══════════════════════════════════════
 # Admin Credentials
 # ═══════════════════════════════════════
+read_env_value() {
+  local key="$1"
+  local file="$2"
+  local value
+
+  value=$(grep -E "^${key}=" "$file" 2>/dev/null | head -n 1 | cut -d'=' -f2-)
+  value="${value#\"}"
+  value="${value%\"}"
+  value="${value#\'}"
+  value="${value%\'}"
+  printf "%s" "$value"
+}
+
+sync_admin_credentials() {
+  local env_file=""
+  local supabase_url=""
+  local supabase_anon_key=""
+  local function_url=""
+  local reset_payload=""
+  local bootstrap_payload=""
+  local response=""
+  local error_message=""
+
+  for candidate in "${SCRIPT_DIR}/.env" "${NMSLEX_DIR}/dashboard/.env"; do
+    if [ -f "$candidate" ]; then
+      env_file="$candidate"
+      break
+    fi
+  done
+
+  if [ -z "$env_file" ]; then
+    log_warn "Admin auth sync skipped: .env not found"
+    return 1
+  fi
+
+  supabase_url=$(read_env_value "VITE_SUPABASE_URL" "$env_file")
+  supabase_anon_key=$(read_env_value "VITE_SUPABASE_PUBLISHABLE_KEY" "$env_file")
+
+  if [ -z "$supabase_url" ] || [ -z "$supabase_anon_key" ]; then
+    log_warn "Admin auth sync skipped: backend URL/key missing in .env"
+    return 1
+  fi
+
+  function_url="${supabase_url%/}/functions/v1/manage-users"
+
+  reset_payload=$(jq -nc \
+    --arg email "$ADMIN_EMAIL" \
+    --arg password "$ADMIN_PASSWORD" \
+    '{action:"reset_admin_password", email:$email, password:$password}')
+
+  response=$(curl -sS --max-time 30 -X POST "$function_url" \
+    -H "Content-Type: application/json" \
+    -H "apikey: $supabase_anon_key" \
+    -H "Authorization: Bearer $supabase_anon_key" \
+    -d "$reset_payload")
+
+  if echo "$response" | jq -e '.success == true' >/dev/null 2>&1; then
+    log_ok "Admin password synced to backend auth"
+    return 0
+  fi
+
+  error_message=$(echo "$response" | jq -r '.error // empty' 2>/dev/null)
+
+  if [ "$error_message" = "User not found" ]; then
+    bootstrap_payload=$(jq -nc \
+      --arg email "$ADMIN_EMAIL" \
+      --arg password "$ADMIN_PASSWORD" \
+      --arg name "Administrator" \
+      '{action:"bootstrap_admin", email:$email, password:$password, name:$name}')
+
+    response=$(curl -sS --max-time 30 -X POST "$function_url" \
+      -H "Content-Type: application/json" \
+      -H "apikey: $supabase_anon_key" \
+      -H "Authorization: Bearer $supabase_anon_key" \
+      -d "$bootstrap_payload")
+
+    if echo "$response" | jq -e '.success == true' >/dev/null 2>&1; then
+      log_ok "Admin account bootstrapped in backend auth"
+      return 0
+    fi
+
+    error_message=$(echo "$response" | jq -r '.error // empty' 2>/dev/null)
+  fi
+
+  log_warn "Admin auth sync failed${error_message:+: $error_message}"
+  return 1
+}
+
 generate_admin_credentials() {
   ADMIN_EMAIL="adminlex@nmslex.com"
   ADMIN_PASSWORD=$(openssl rand -base64 16 | tr -d '=/+' | head -c 16)
@@ -944,6 +1032,10 @@ generate_admin_credentials() {
   echo "ADMIN_PASSWORD=${ADMIN_PASSWORD}" >> ${NMSLEX_CONF}/admin.credentials
   chmod 600 ${NMSLEX_CONF}/admin.credentials
   log_ok "Credentials saved (root only): ${NMSLEX_CONF}/admin.credentials"
+
+  if ! sync_admin_credentials; then
+    log_warn "Login awal bisa gagal sampai kredensial backend berhasil disinkronkan"
+  fi
 }
 
 # ═══════════════════════════════════════
