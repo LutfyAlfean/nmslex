@@ -160,8 +160,58 @@ export default function Login() {
           <div className="absolute -top-1 right-9 w-0.5 h-12 bg-gradient-to-b from-[hsl(170,80%,45%)]/30 to-transparent rounded-full" />
         </div>
 
+        {/* Service Status Indicator */}
+        <div className="mt-4">
+          <button
+            onClick={() => setShowHealth(!showHealth)}
+            className="flex items-center gap-2 mx-auto text-muted-foreground hover:text-foreground transition-colors text-[11px]"
+          >
+            {healthLoading ? (
+              <Loader2 className="w-3 h-3 animate-spin" />
+            ) : health?.overall === "healthy" ? (
+              <CheckCircle className="w-3 h-3 text-success" />
+            ) : health?.overall === "degraded" ? (
+              <XCircle className="w-3 h-3 text-destructive" />
+            ) : (
+              <HelpCircle className="w-3 h-3 text-warning" />
+            )}
+            <span>
+              {healthLoading ? "Checking services..." : health?.overall === "healthy" ? "All services operational" : health?.overall === "degraded" ? "Service issues detected" : "Partial availability"}
+            </span>
+            {showHealth ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+          </button>
+
+          {showHealth && health && (
+            <div className="mt-2 p-3 rounded-xl bg-[hsl(220,18%,10%)]/80 backdrop-blur border border-[hsl(170,80%,45%)]/10 space-y-2">
+              {health.services.map((svc) => (
+                <div key={svc.name} className="flex items-center justify-between text-[11px]">
+                  <div className="flex items-center gap-2">
+                    {svc.status === "running" ? (
+                      <CheckCircle className="w-3 h-3 text-success" />
+                    ) : svc.status === "stopped" ? (
+                      <XCircle className="w-3 h-3 text-destructive" />
+                    ) : (
+                      <HelpCircle className="w-3 h-3 text-muted-foreground" />
+                    )}
+                    <span className="text-foreground">{svc.name}</span>
+                  </div>
+                  <span className={svc.status === "running" ? "text-success" : svc.status === "stopped" ? "text-destructive" : "text-muted-foreground"}>
+                    {svc.status === "running" ? "OK" : svc.status === "stopped" ? "DOWN" : "N/A"}
+                    {svc.responseTime !== undefined && ` (${svc.responseTime}ms)`}
+                  </span>
+                </div>
+              ))}
+              {health.services.some(s => s.status === "stopped") && (
+                <p className="text-[10px] text-destructive/80 pt-1 border-t border-border/20">
+                  ⚠ Beberapa service mati. Dashboard mungkin blank. Jalankan: <code className="bg-secondary/50 px-1 rounded">sudo ./deploy.sh --status</code>
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+
         {/* Footer */}
-        <p className="text-center text-muted-foreground text-[10px] mt-6 opacity-50">
+        <p className="text-center text-muted-foreground text-[10px] mt-3 opacity-50">
           Default: adminlex@nmslex.com • Password di-generate saat deploy
         </p>
       </div>
