@@ -173,6 +173,33 @@ detect_os() {
 }
 
 # ═══════════════════════════════════════
+# Auto-detect Network Interface
+# ═══════════════════════════════════════
+detect_interface() {
+  if [ -n "$INTERFACE" ]; then
+    log_info "Using specified interface: ${WHITE}${INTERFACE}${NC}"
+    return
+  fi
+
+  # Try to find the default-route interface
+  local detected
+  detected=$(ip route show default 2>/dev/null | awk '{print $5; exit}')
+
+  if [ -z "$detected" ]; then
+    # Fallback: first non-lo UP interface
+    detected=$(ip -o link show up 2>/dev/null | awk -F': ' '!/lo/{print $2; exit}')
+  fi
+
+  if [ -n "$detected" ]; then
+    INTERFACE="$detected"
+    log_ok "Auto-detected interface: ${WHITE}${INTERFACE}${NC}"
+  else
+    INTERFACE="eth0"
+    log_warn "Could not auto-detect interface, falling back to ${WHITE}eth0${NC}"
+  fi
+}
+
+# ═══════════════════════════════════════
 # Run command in background with spinner
 # ═══════════════════════════════════════
 run_with_spinner() {
