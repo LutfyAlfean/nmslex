@@ -182,6 +182,87 @@ run_with_spinner() {
   spinner $! "$msg"
 }
 
+get_package_version() {
+  local pkg="$1"
+  local version=""
+
+  if command -v dpkg-query >/dev/null 2>&1; then
+    version=$(dpkg-query -W -f='${Version}' "$pkg" 2>/dev/null | head -n 1)
+    if [ -n "$version" ]; then
+      echo "$version"
+      return 0
+    fi
+  fi
+
+  if command -v rpm >/dev/null 2>&1; then
+    version=$(rpm -q --qf '%{VERSION}
+' "$pkg" 2>/dev/null | head -n 1)
+    if [ -n "$version" ]; then
+      echo "$version"
+      return 0
+    fi
+  fi
+
+  return 1
+}
+
+get_repo_candidate_version() {
+  local pkg="$1"
+  local version=""
+
+  if command -v apt-cache >/dev/null 2>&1; then
+    version=$(apt-cache policy "$pkg" 2>/dev/null | awk '/Candidate:/ {print $2; exit}')
+    if [ -n "$version" ] && [ "$version" != "(none)" ]; then
+      echo "$version"
+      return 0
+    fi
+  fi
+
+  if command -v repoquery >/dev/null 2>&1; then
+    version=$(repoquery --quiet --latest-limit=1 --qf '%{version}' "$pkg" 2>/dev/null | head -n 1)
+    if [ -n "$version" ]; then
+      echo "$version"
+      return 0
+    fi
+  fi
+
+  return 1
+}
+
+get_major_minor_version() {
+  echo "$1" | grep -oE '[0-9]+\.[0-9]+' | head -n 1
+}
+
+ensure_elastic_stack_compatibility() {
+  local label="$1"
+  local es_version="$2"
+  local kb_version="$3"
+
+  if [ -z "$es_version" ] || [ -z "$kb_version" ]; then
+    return 0
+  fi
+
+  local es_mm
+  local kb_mm
+  es_mm=$(get_major_minor_version "$es_version")
+  kb_mm=$(get_major_minor_version "$kb_version")
+
+  if [ -z "$es_mm" ] || [ -z "$kb_mm" ]; then
+    log_warn "$label version check skipped"
+    return 0
+  fi
+
+  if [ "$es_mm" != "$kb_mm" ]; then
+    log_err "$label version mismatch detected"
+    echo -e "    ${DIM}Elasticsearch: ${WHITE}${es_version}${NC}"
+    echo -e "    ${DIM}Kibana:        ${WHITE}${kb_version}${NC}"
+    echo -e "    ${DIM}Gunakan major.minor yang sama, misalnya 8.13.x dengan 8.13.x${NC}"
+    exit 1
+  fi
+
+  log_ok "$label compatible (${es_version} ↔ ${kb_version})"
+}
+
 # ═══════════════════════════════════════
 # UNINSTALL
 # ═══════════════════════════════════════
@@ -499,17 +580,45 @@ SURICATAEOF
   # Step 4: Elasticsearch
   step=$((step+1))
   log_step "[$step/$steps] Elasticsearch"
+  local installed_es_version=""
+  local installed_kb_version=""
+  local repo_es_version=""
+  local repo_kb_version=""
+
+  installed_es_version=$(get_package_version elasticsearch 2>/dev/null || true)
+  installed_kb_version=$(get_package_version kibana 2>/dev/null || true)
+  ensure_elastic_stack_compatibility "Installed Elastic Stack" "$installed_es_version" "$installed_kb_version"
+
+  log_info "Adding Elastic repository..."
+  wget -qO - https://artifacts.elastic.co/GPG-KEY-elasticsearch | gpg --dearmor -o /usr/share/keyrings/elasticsearch-keyring.gpg 2>/dev/null || true
+  echo "deb [signed-by=/usr/share/keyrings/elasticsearch-keyring.gpg] https://artifacts.elastic.co/packages/8.x/apt stable main" > /etc/apt/sources.list.d/elastic-8.x.list
+  apt-get update -qq >/dev/null 2>&1
+
+  repo_es_version=$(get_repo_candidate_version elasticsearch 2>/dev/null || true)
+  repo_kb_version=$(get_repo_candidate_version kibana 2>/dev/null || true)
+
+  if [ -z "$installed_es_version" ] && [ -n "$installed_kb_version" ] && [ -n "$repo_es_version" ]; then
+    ensure_elastic_stack_compatibility "Repository vs installed Kibana" "$repo_es_version" "$installed_kb_version"
+  fi
+
+  if [ -n "$repo_es_version" ]; then
+    log_info "Elasticsearch candidate version: ${WHITE}${repo_es_version}${NC}"
+  fi
+  if [ -n "$repo_kb_version" ]; then
+    log_info "Kibana candidate version: ${WHITE}${repo_kb_version}${NC}"
+  fi
+
   if ! dpkg -l elasticsearch >/dev/null 2>&1 && ! rpm -q elasticsearch >/dev/null 2>&1; then
-    log_info "Adding Elastic repository..."
-    wget -qO - https://artifacts.elastic.co/GPG-KEY-elasticsearch | gpg --dearmor -o /usr/share/keyrings/elasticsearch-keyring.gpg 2>/dev/null || true
-    echo "deb [signed-by=/usr/share/keyrings/elasticsearch-keyring.gpg] https://artifacts.elastic.co/packages/8.x/apt stable main" > /etc/apt/sources.list.d/elastic-8.x.list
-    apt-get update -qq >/dev/null 2>&1
     log_info "Installing Elasticsearch (this may take a few minutes)..."
     apt-get install -y -qq elasticsearch >/dev/null 2>&1
     log_ok "Elasticsearch installed"
   else
     log_ok "Elasticsearch already installed"
   fi
+
+  installed_es_version=$(get_package_version elasticsearch 2>/dev/null || true)
+  installed_kb_version=$(get_package_version kibana 2>/dev/null || true)
+  ensure_elastic_stack_compatibility "Elasticsearch vs existing Kibana" "$installed_es_version" "$installed_kb_version"
 
   log_info "Configuring Elasticsearch..."
   ELASTICSEARCH_CONFIG="/etc/elasticsearch/elasticsearch.yml"
@@ -540,6 +649,14 @@ ESEOF
   # Step 5: Kibana
   step=$((step+1))
   log_step "[$step/$steps] Kibana"
+  installed_es_version=$(get_package_version elasticsearch 2>/dev/null || true)
+  installed_kb_version=$(get_package_version kibana 2>/dev/null || true)
+  repo_kb_version=$(get_repo_candidate_version kibana 2>/dev/null || true)
+
+  if [ -z "$installed_kb_version" ] && [ -n "$installed_es_version" ] && [ -n "$repo_kb_version" ]; then
+    ensure_elastic_stack_compatibility "Repository vs installed Elasticsearch" "$installed_es_version" "$repo_kb_version"
+  fi
+
   if ! dpkg -l kibana >/dev/null 2>&1 && ! rpm -q kibana >/dev/null 2>&1; then
     log_info "Installing Kibana..."
     apt-get install -y -qq kibana >/dev/null 2>&1
@@ -547,6 +664,9 @@ ESEOF
   else
     log_ok "Kibana already installed"
   fi
+
+  installed_kb_version=$(get_package_version kibana 2>/dev/null || true)
+  ensure_elastic_stack_compatibility "Elastic Stack" "$installed_es_version" "$installed_kb_version"
 
   if ! grep -q "nmslex" /etc/kibana/kibana.yml 2>/dev/null; then
     cat >> /etc/kibana/kibana.yml << 'KBEOF'
