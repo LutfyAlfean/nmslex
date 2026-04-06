@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { Eye, EyeOff, Lock, Mail, AlertCircle } from "lucide-react";
+import { Eye, EyeOff, Lock, Mail, AlertCircle, CheckCircle, XCircle, HelpCircle, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
+import { useHealthCheck } from "@/hooks/useHealthCheck";
 
 export default function Login() {
   const [email, setEmail] = useState("");
