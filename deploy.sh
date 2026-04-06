@@ -1305,7 +1305,7 @@ do_status() {
       fi
       echo -e "  ${GREEN}✔${NC} ${WHITE}${svc}${NC} ${GREEN}running${NC}${DIM}${mem_mb}${NC}"
       echo -e "    ${DIM}since: ${uptime}${NC}"
-    elif systemctl is-enabled --quiet "$svc" 2>/dev/null; then
+    elif is_service_known "$svc"; then
       all_ok=false
       echo -e "  ${RED}✘${NC} ${WHITE}${svc}${NC} ${RED}stopped / failed${NC}"
       echo -e "    ${DIM}─── Recent logs ───${NC}"
@@ -1317,7 +1317,11 @@ do_status() {
         fi
       done
       echo -e "    ${DIM}───────────────────${NC}"
+    elif is_package_installed "$svc"; then
+      all_ok=false
+      echo -e "  ${YELLOW}─${NC} ${WHITE}${svc}${NC} ${YELLOW}package installed but service unit missing${NC}"
     else
+      all_ok=false
       echo -e "  ${YELLOW}─${NC} ${WHITE}${svc}${NC} ${YELLOW}not installed${NC}"
     fi
   done
