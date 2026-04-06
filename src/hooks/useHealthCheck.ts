@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
+const HEALTH_POLL_MS = 10000; // 10s default polling
+
 interface ServiceHealth {
   name: string;
   status: "running" | "warning" | "stopped" | "unknown";
@@ -15,6 +17,7 @@ interface HealthData {
 }
 
 export function useHealthCheck(autoRefreshMs = 60000) {
+  const effectiveInterval = Math.min(autoRefreshMs, HEALTH_POLL_MS);
   const [health, setHealth] = useState<HealthData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -47,11 +50,11 @@ export function useHealthCheck(autoRefreshMs = 60000) {
 
   useEffect(() => {
     check();
-    if (autoRefreshMs > 0) {
-      const interval = setInterval(check, autoRefreshMs);
+    if (effectiveInterval > 0) {
+      const interval = setInterval(check, effectiveInterval);
       return () => clearInterval(interval);
     }
-  }, [check, autoRefreshMs]);
+  }, [check, effectiveInterval]);
 
   return { health, loading, error, refresh: check };
 }

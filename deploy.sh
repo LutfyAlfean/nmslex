@@ -12,7 +12,7 @@ NMSLEX_DIR="/opt/nmslex"
 NMSLEX_CONF="/etc/nmslex"
 NMSLEX_LOG="/var/log/nmslex"
 ELASTIC_VERSION="8.13.0"
-INTERFACE="eth0"
+INTERFACE=""
 ACTION="install"
 
 export DEBIAN_FRONTEND=noninteractive
@@ -118,7 +118,7 @@ show_usage() {
   echo -e "    ${CYAN}--status${NC}    Check status of all services"
   echo ""
   echo -e "  ${WHITE}${BOLD}Options:${NC}"
-  echo -e "    ${CYAN}--interface${NC} <iface>  Network interface (default: eth0)"
+  echo -e "    ${CYAN}--interface${NC} <iface>  Network interface (auto-detected if omitted)"
   echo -e "    ${CYAN}--port${NC} <port>        Dashboard port (default: 7356)"
   echo -e "    ${CYAN}--help${NC}               Show this help"
   echo ""
@@ -127,7 +127,7 @@ show_usage() {
   echo -e "    ${DIM}sudo ./deploy.sh --rebuild${NC}               # Rebuild after code changes"
   echo -e "    ${DIM}sudo ./deploy.sh --reset${NC}                 # Reset configuration"
   echo -e "    ${DIM}sudo ./deploy.sh --uninstall${NC}             # Remove everything"
-  echo -e "    ${DIM}sudo ./deploy.sh --interface ens33${NC}       # Custom interface"
+  echo -e "    ${DIM}sudo ./deploy.sh --interface ens18${NC}       # Custom interface"
   echo ""
 }
 
@@ -170,6 +170,33 @@ detect_os() {
     exit 1
   fi
   log_info "Detected: ${WHITE}$OS $VER${NC}"
+}
+
+# ═══════════════════════════════════════
+# Auto-detect Network Interface
+# ═══════════════════════════════════════
+detect_interface() {
+  if [ -n "$INTERFACE" ]; then
+    log_info "Using specified interface: ${WHITE}${INTERFACE}${NC}"
+    return
+  fi
+
+  # Try to find the default-route interface
+  local detected
+  detected=$(ip route show default 2>/dev/null | awk '{print $5; exit}')
+
+  if [ -z "$detected" ]; then
+    # Fallback: first non-lo UP interface
+    detected=$(ip -o link show up 2>/dev/null | awk -F': ' '!/lo/{print $2; exit}')
+  fi
+
+  if [ -n "$detected" ]; then
+    INTERFACE="$detected"
+    log_ok "Auto-detected interface: ${WHITE}${INTERFACE}${NC}"
+  else
+    INTERFACE="eth0"
+    log_warn "Could not auto-detect interface, falling back to ${WHITE}eth0${NC}"
+  fi
 }
 
 # ═══════════════════════════════════════
@@ -1213,7 +1240,7 @@ export DEBIAN_FRONTEND=noninteractive
 NMSLEX_SERVER=""
 NMSLEX_PORT=9200
 AGENT_NAME=$(hostname)
-INTERFACE="eth0"
+INTERFACE=""
 LOG_PATHS="/var/log/syslog,/var/log/auth.log"
 
 while [[ $# -gt 0 ]]; do
@@ -1231,6 +1258,13 @@ if [ -z "$NMSLEX_SERVER" ]; then
   echo "Error: --server is required"
   echo "Usage: sudo ./nmslex-agent-install.sh --server <NMSLEX_SERVER_IP>"
   exit 1
+fi
+
+if [ -z "$INTERFACE" ]; then
+  INTERFACE=$(ip route show default 2>/dev/null | awk '{print $5; exit}')
+  [ -z "$INTERFACE" ] && INTERFACE=$(ip -o link show up 2>/dev/null | awk -F': ' '!/lo/{print $2; exit}')
+  [ -z "$INTERFACE" ] && INTERFACE="eth0"
+  echo "Auto-detected interface: $INTERFACE"
 fi
 
 echo "🐼 NMSLEX Agent Installer"

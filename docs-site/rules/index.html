@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NMSLEX — Custom Suricata Rules Guide</title>
+  <meta name="description" content="Panduan lengkap membuat dan mengelola custom Suricata rules untuk monitoring ancaman jaringan di NMSLEX." />
+  <link rel="canonical" href="https://nmslex.vercel.app/rules" />
+  <link rel="icon" type="image/png" href="../assets/logo.png" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../style.css" />
+  <link rel="stylesheet" href="rules.css" />
+</head>
+<body>
+  <!-- Navigation -->
+  <nav class="nav" id="nav">
+    <div class="nav-inner">
+      <a href="/" class="nav-logo">
+        <span class="nav-logo-text">🐼 NMSLEX</span>
+      </a>
+      <div class="nav-links" id="navLinks">
+        <a href="/">Home</a>
+        <a href="#anatomy">Anatomi Rule</a>
+        <a href="#examples">Contoh Rules</a>
+        <a href="#advanced">Advanced</a>
+        <a href="#management">Management</a>
+      </div>
+      <a href="https://github.com/LutfyAlfean/nmslex" class="btn btn-outline btn-sm" target="_blank" rel="noopener">GitHub</a>
+      <button class="nav-toggle" id="navToggle" aria-label="Toggle menu">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <section class="hero rules-hero">
+    <div class="hero-bg">
+      <div class="hero-grid"></div>
+      <div class="hero-glow"></div>
+    </div>
+    <div class="hero-content">
+      <span class="hero-badge">📜 Suricata Rules</span>
+      <h1 class="hero-title" style="font-size:clamp(36px,6vw,60px);">Custom Rules Guide</h1>
+      <p class="hero-desc">Panduan lengkap membuat, mengelola, dan mengoptimalkan Suricata rules untuk mendeteksi ancaman dan aktivitas jaringan di NMSLEX.</p>
+    </div>
+  </section>
+
+  <!-- Anatomy Section -->
+  <section class="section" id="anatomy">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-badge">Dasar</span>
+        <h2 class="section-title">Anatomi Suricata Rule</h2>
+        <p class="section-desc">Setiap rule terdiri dari header (action, protocol, source, destination) dan options (detection logic).</p>
+      </div>
+
+      <div class="rule-anatomy">
+        <div class="rule-diagram">
+          <pre><code><span class="rule-action">alert</span> <span class="rule-proto">http</span> <span class="rule-src">$HOME_NET</span> any <span class="rule-dir">-></span> <span class="rule-dst">$EXTERNAL_NET</span> any (<span class="rule-opt">msg:"Detect suspicious user-agent"; content:"evil-bot"; http_user_agent; sid:1000001; rev:1;</span>)</code></pre>
+        </div>
+
+        <div class="anatomy-grid">
+          <div class="anatomy-card">
+            <h3>🎯 Action</h3>
+            <table>
+              <tr><td><code>alert</code></td><td>Generate alert + log event</td></tr>
+              <tr><td><code>pass</code></td><td>Skip packet (whitelist)</td></tr>
+              <tr><td><code>drop</code></td><td>Drop packet (IPS mode)</td></tr>
+              <tr><td><code>reject</code></td><td>Drop + send RST/ICMP unreachable</td></tr>
+            </table>
+          </div>
+          <div class="anatomy-card">
+            <h3>🌐 Protocol</h3>
+            <table>
+              <tr><td><code>tcp</code> <code>udp</code> <code>icmp</code></td><td>Layer 4</td></tr>
+              <tr><td><code>http</code> <code>dns</code> <code>tls</code></td><td>Layer 7 (app)</td></tr>
+              <tr><td><code>ssh</code> <code>ftp</code> <code>smtp</code></td><td>Layer 7 (app)</td></tr>
+              <tr><td><code>ip</code></td><td>Catch-all Layer 3</td></tr>
+            </table>
+          </div>
+          <div class="anatomy-card">
+            <h3>📍 Direction</h3>
+            <table>
+              <tr><td><code>-></code></td><td>Source ke destination (unidirectional)</td></tr>
+              <tr><td><code>&lt;></code></td><td>Kedua arah (bidirectional)</td></tr>
+            </table>
+          </div>
+          <div class="anatomy-card">
+            <h3>🏠 Variables</h3>
+            <table>
+              <tr><td><code>$HOME_NET</code></td><td>Network yang dimonitor</td></tr>
+              <tr><td><code>$EXTERNAL_NET</code></td><td>External networks</td></tr>
+              <tr><td><code>$HTTP_SERVERS</code></td><td>Web servers</td></tr>
+              <tr><td><code>$DNS_SERVERS</code></td><td>DNS servers</td></tr>
+            </table>
+          </div>
+        </div>
+
+        <div class="options-detail">
+          <h3>⚙️ Rule Options (Keywords)</h3>
+          <div class="options-grid">
+            <div class="opt-card">
+              <code>msg</code>
+              <p>Pesan deskriptif yang muncul saat alert trigger</p>
+              <pre><code>msg:"SQL Injection attempt detected";</code></pre>
+            </div>
+            <div class="opt-card">
+              <code>content</code>
+              <p>Pattern matching pada payload. Case-sensitive by default.</p>
+              <pre><code>content:"SELECT"; nocase;
+content:"|0d 0a 0d 0a|";  <span class="code-comment">/* hex match */</span></code></pre>
+            </div>
+            <div class="opt-card">
+              <code>pcre</code>
+              <p>Perl Compatible Regular Expression untuk pattern kompleks</p>
+              <pre><code>pcre:"/\/admin\.(php|asp)/i";</code></pre>
+            </div>
+            <div class="opt-card">
+              <code>sid / rev</code>
+              <p>Signature ID (unik) dan revision number</p>
+              <pre><code>sid:1000001; rev:3;</code></pre>
+            </div>
+            <div class="opt-card">
+              <code>classtype</code>
+              <p>Kategori ancaman untuk grouping alerts</p>
+              <pre><code>classtype:web-application-attack;</code></pre>
+            </div>
+            <div class="opt-card">
+              <code>threshold</code>
+              <p>Rate limiting untuk mengurangi alert noise</p>
+              <pre><code>threshold:type both, track by_src, count 5, seconds 60;</code></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Examples Section -->
+  <section class="section section-dark" id="examples">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-badge">Contoh</span>
+        <h2 class="section-title">Contoh Rules Siap Pakai</h2>
+        <p class="section-desc">Copy-paste rules ini ke file custom rules kamu dan sesuaikan SID.</p>
+      </div>
+
+      <div class="examples-list">
+        <!-- Example 1 -->
+        <div class="example-card">
+          <div class="example-header">
+            <span class="example-tag tag-web">HTTP</span>
+            <h3>Deteksi SQL Injection</h3>
+          </div>
+          <pre><code><span class="code-comment"># Deteksi percobaan SQL injection pada HTTP request</span>
+alert http $HOME_NET any -> $EXTERNAL_NET any (
+  msg:"NMSLEX SQL Injection attempt";
+  flow:established,to_server;
+  content:"UNION"; nocase;
+  content:"SELECT"; nocase;
+  distance:0;
+  classtype:web-application-attack;
+  sid:1000001; rev:1;
+)</code></pre>
+        </div>
+
+        <!-- Example 2 -->
+        <div class="example-card">
+          <div class="example-header">
+            <span class="example-tag tag-dns">DNS</span>
+            <h3>Deteksi DNS Tunneling</h3>
+          </div>
+          <pre><code><span class="code-comment"># Alert jika DNS query memiliki subdomain sangat panjang (tunneling indicator)</span>
+alert dns $HOME_NET any -> any any (
+  msg:"NMSLEX Possible DNS Tunneling";
+  dns.query; content:".";
+  pcre:"/^[a-z0-9]{30,}\./i";
+  threshold:type both, track by_src, count 10, seconds 60;
+  classtype:trojan-activity;
+  sid:1000002; rev:1;
+)</code></pre>
+        </div>
+
+        <!-- Example 3 -->
+        <div class="example-card">
+          <div class="example-header">
+            <span class="example-tag tag-net">Network</span>
+            <h3>Deteksi Port Scan (SYN Scan)</h3>
+          </div>
+          <pre><code><span class="code-comment"># Deteksi SYN scan — banyak SYN tanpa ACK dari source yang sama</span>
+alert tcp $EXTERNAL_NET any -> $HOME_NET any (
+  msg:"NMSLEX Possible SYN Port Scan";
+  flags:S,12;
+  threshold:type both, track by_src, count 20, seconds 10;
+  classtype:attempted-recon;
+  sid:1000003; rev:1;
+)</code></pre>
+        </div>
+
+        <!-- Example 4 -->
+        <div class="example-card">
+          <div class="example-header">
+            <span class="example-tag tag-tls">TLS</span>
+            <h3>Deteksi Self-Signed Certificate</h3>
+          </div>
+          <pre><code><span class="code-comment"># Alert saat TLS handshake menggunakan self-signed cert (issuer = subject)</span>
+alert tls any any -> $HOME_NET any (
+  msg:"NMSLEX Self-signed TLS certificate detected";
+  tls.cert_issuer; content:"CN=";
+  tls.cert_subject; content:"CN=";
+  classtype:policy-violation;
+  sid:1000004; rev:1;
+)</code></pre>
+        </div>
+
+        <!-- Example 5 -->
+        <div class="example-card">
+          <div class="example-header">
+            <span class="example-tag tag-ssh">SSH</span>
+            <h3>Deteksi SSH Brute Force</h3>
+          </div>
+          <pre><code><span class="code-comment"># Alert jika ada banyak koneksi SSH dari satu source dalam waktu singkat</span>
+alert tcp $EXTERNAL_NET any -> $HOME_NET 22 (
+  msg:"NMSLEX SSH Brute Force attempt";
+  flow:to_server;
+  flags:S,12;
+  threshold:type both, track by_src, count 5, seconds 30;
+  classtype:attempted-admin;
+  sid:1000005; rev:1;
+)</code></pre>
+        </div>
+
+        <!-- Example 6 -->
+        <div class="example-card">
+          <div class="example-header">
+            <span class="example-tag tag-web">HTTP</span>
+            <h3>Deteksi XSS (Cross-Site Scripting)</h3>
+          </div>
+          <pre><code><span class="code-comment"># Deteksi percobaan XSS pada HTTP request</span>
+alert http $HOME_NET any -> $EXTERNAL_NET any (
+  msg:"NMSLEX Possible XSS attack";
+  flow:established,to_server;
+  content:"&lt;script"; nocase;
+  http_uri;
+  classtype:web-application-attack;
+  sid:1000006; rev:1;
+)</code></pre>
+        </div>
+
+        <!-- Example 7 -->
+        <div class="example-card">
+          <div class="example-header">
+            <span class="example-tag tag-net">ICMP</span>
+            <h3>Deteksi Ping Flood</h3>
+          </div>
+          <pre><code><span class="code-comment"># Deteksi ICMP flood (DDoS via ping)</span>
+alert icmp $EXTERNAL_NET any -> $HOME_NET any (
+  msg:"NMSLEX ICMP Flood detected";
+  itype:8;
+  threshold:type both, track by_src, count 50, seconds 10;
+  classtype:attempted-dos;
+  sid:1000007; rev:1;
+)</code></pre>
+        </div>
+
+        <!-- Example 8 -->
+        <div class="example-card">
+          <div class="example-header">
+            <span class="example-tag tag-web">HTTP</span>
+            <h3>Deteksi Crypto Mining</h3>
+          </div>
+          <pre><code><span class="code-comment"># Deteksi koneksi ke mining pool</span>
+alert http $HOME_NET any -> $EXTERNAL_NET any (
+  msg:"NMSLEX Crypto Mining Pool connection";
+  flow:established,to_server;
+  content:"stratum+tcp://"; nocase;
+  classtype:policy-violation;
+  sid:1000008; rev:1;
+)
+
+alert dns $HOME_NET any -> any any (
+  msg:"NMSLEX Crypto Mining DNS lookup";
+  dns.query; content:"pool."; nocase;
+  pcre:"/(nanopool|ethermine|f2pool|mining|hashrate)/i";
+  classtype:policy-violation;
+  sid:1000009; rev:1;
+)</code></pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Advanced Section -->
+  <section class="section" id="advanced">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-badge">Advanced</span>
+        <h2 class="section-title">Teknik Advanced</h2>
+        <p class="section-desc">Flow control, multi-content matching, dan optimasi performa rules.</p>
+      </div>
+
+      <div class="advanced-grid">
+        <div class="adv-card">
+          <h3>🔄 Flow Control</h3>
+          <p>Gunakan <code>flow</code> untuk menentukan arah dan state koneksi:</p>
+          <pre><code><span class="code-comment"># Hanya match pada established connection ke server</span>
+flow:established,to_server;
+
+<span class="code-comment"># Hanya match pada response dari server</span>
+flow:established,to_client;
+
+<span class="code-comment"># Deteksi packet pertama (SYN)</span>
+flow:stateless;</code></pre>
+        </div>
+
+        <div class="adv-card">
+          <h3>🔗 Multi-Content Matching</h3>
+          <p>Chain multiple content matches dengan <code>distance</code> dan <code>within</code>:</p>
+          <pre><code>alert http any any -> any any (
+  msg:"Chained content match";
+  content:"POST"; http_method;
+  content:"/upload"; http_uri;
+  content:"filename="; http_client_body;
+  content:".php"; distance:0; within:50;
+  sid:1000010; rev:1;
+)</code></pre>
+        </div>
+
+        <div class="adv-card">
+          <h3>📊 Flowbits (Stateful Detection)</h3>
+          <p>Track state across packets untuk deteksi multi-stage attack:</p>
+          <pre><code><span class="code-comment"># Rule 1: Set bit saat login gagal</span>
+alert http any any -> any any (
+  msg:"Login failed";
+  content:"401"; http_stat_code;
+  flowbits:set,login_failed;
+  flowbits:noalert;
+  sid:1000011; rev:1;
+)
+
+<span class="code-comment"># Rule 2: Alert jika brute force setelah login gagal</span>
+alert http any any -> any any (
+  msg:"Brute force after failed login";
+  flowbits:isset,login_failed;
+  threshold:type both, track by_src, count 3, seconds 60;
+  sid:1000012; rev:1;
+)</code></pre>
+        </div>
+
+        <div class="adv-card">
+          <h3>⚡ Performance Tips</h3>
+          <ul class="perf-list">
+            <li><strong>content sebelum pcre</strong> — content match lebih cepat dari regex, gunakan sebagai pre-filter</li>
+            <li><strong>fast_pattern</strong> — tandai content terpanjang/spesifik sebagai fast_pattern untuk multi-pattern matching engine</li>
+            <li><strong>Hindari pcre standalone</strong> — selalu kombinasikan dengan content match</li>
+            <li><strong>Gunakan threshold</strong> — kurangi noise dengan rate limiting</li>
+            <li><strong>Specific protocol</strong> — gunakan <code>http</code> bukan <code>tcp</code> jika mungkin</li>
+          </ul>
+          <pre><code><span class="code-comment"># fast_pattern untuk optimasi</span>
+content:"specificLongString"; fast_pattern;</code></pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Management Section -->
+  <section class="section section-dark" id="management">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-badge">Manajemen</span>
+        <h2 class="section-title">Manajemen Rules di NMSLEX</h2>
+        <p class="section-desc">Cara menambahkan, mengaktifkan, dan mengelola custom rules di server NMSLEX.</p>
+      </div>
+
+      <div class="mgmt-steps">
+        <div class="step">
+          <div class="step-number">1</div>
+          <div class="step-content">
+            <h3>Buat file custom rules</h3>
+            <pre><code>sudo nano /etc/suricata/rules/custom.rules</code></pre>
+            <p class="step-note">Tambahkan rules kamu di file ini. Satu rule per baris.</p>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-number">2</div>
+          <div class="step-content">
+            <h3>Daftarkan di suricata.yaml</h3>
+            <pre><code><span class="code-comment"># Pastikan di bagian rule-files:</span>
+rule-files:
+  - suricata.rules
+  - /etc/suricata/rules/custom.rules</code></pre>
+            <p class="step-note">deploy.sh otomatis menambahkan ini saat install. Cek jika manual.</p>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-number">3</div>
+          <div class="step-content">
+            <h3>Validasi syntax</h3>
+            <pre><code><span class="code-comment"># Test rules tanpa restart Suricata</span>
+sudo suricata -T -c /etc/suricata/suricata.yaml
+
+<span class="code-comment"># Output yang benar:</span>
+<span class="code-comment"># Notice: suricata: Configuration provided was successfully loaded.</span></code></pre>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-number">4</div>
+          <div class="step-content">
+            <h3>Reload rules (tanpa downtime)</h3>
+            <pre><code><span class="code-comment"># Hot reload — tidak interrupt traffic monitoring</span>
+sudo suricatasc -c reload-rules
+
+<span class="code-comment"># Atau restart penuh jika perlu</span>
+sudo systemctl restart suricata</code></pre>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-number">5</div>
+          <div class="step-content">
+            <h3>Verifikasi di NMSLEX Dashboard</h3>
+            <p class="step-note">Setelah rules aktif, alert akan muncul di halaman <strong>Alerts</strong> pada NMSLEX Dashboard. Gunakan filter untuk mencari berdasarkan SID atau message.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="sid-guide">
+        <h3>📌 SID Range Guide</h3>
+        <table>
+          <thead>
+            <tr><th>Range</th><th>Penggunaan</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>1–999999</code></td><td>Reserved untuk Emerging Threats / Suricata official rules</td></tr>
+            <tr><td><code>1000000–1999999</code></td><td>Custom rules — <strong>gunakan range ini</strong></td></tr>
+            <tr><td><code>2000000+</code></td><td>Emerging Threats community rules</td></tr>
+          </tbody>
+        </table>
+        <p class="step-note" style="margin-top:12px;">💡 Tip: Buat numbering system, misal <code>100XYYY</code> dimana X = kategori (1=web, 2=dns, 3=ssh, dst) dan YYY = nomor urut.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="section" style="text-align:center;">
+    <div class="container">
+      <h2 class="section-title">Mulai Buat Rules Custom</h2>
+      <p class="section-desc" style="margin-bottom:32px;">Proteksi jaringan kamu dengan deteksi yang tepat sasaran.</p>
+      <div class="hero-actions">
+        <a href="/" class="btn btn-outline btn-lg">← Kembali ke Docs</a>
+        <a href="https://github.com/LutfyAlfean/nmslex" class="btn btn-primary btn-lg" target="_blank" rel="noopener">
+          GitHub Repository
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-bottom" style="border-top:none;">
+        <p>© 2026 Muhammad Lutfi Alfian — NMSLEX</p>
+        <p>Built with 🐼</p>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // Nav scroll effect
+    window.addEventListener('scroll', () => {
+      document.getElementById('nav').classList.toggle('nav-scrolled', window.scrollY > 20);
+    });
+    // Mobile nav toggle
+    document.getElementById('navToggle')?.addEventListener('click', () => {
+      document.getElementById('navLinks').classList.toggle('nav-links-open');
+    });
+    // Scroll reveal
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('revealed'); });
+    }, { threshold: 0.1 });
+    document.querySelectorAll('.reveal, .example-card, .anatomy-card, .adv-card, .opt-card, .step').forEach(el => observer.observe(el));
+  </script>
+</body>
+</html>
