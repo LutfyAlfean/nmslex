@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>404 — NMSLEX</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #00d4aa;
+      --bg: #0a0f1a;
+      --text: #e2e8f0;
+      --text-dim: #94a3b8;
+      --text-bright: #f8fafc;
+      --border: #1e293b;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+    .glow {
+      position: fixed; top: 30%; left: 50%; transform: translateX(-50%);
+      width: 500px; height: 500px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(0,212,170,0.1) 0%, transparent 70%);
+      filter: blur(80px); pointer-events: none;
+    }
+    .content { position: relative; z-index: 1; padding: 24px; }
+    .icon { font-size: 64px; margin-bottom: 16px; }
+    .code {
+      font-size: clamp(80px, 15vw, 140px); font-weight: 900;
+      color: var(--text-bright); letter-spacing: -4px; line-height: 1;
+      background: linear-gradient(135deg, var(--text-bright), var(--primary));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .title { font-size: 22px; font-weight: 700; color: var(--text-bright); margin: 12px 0 8px; }
+    .desc { color: var(--text-dim); font-size: 15px; max-width: 400px; margin: 0 auto 32px; }
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 12px 28px; border-radius: 10px; font-weight: 700; font-size: 14px;
+      text-decoration: none; background: var(--primary); color: #000;
+      transition: all 0.2s;
+    }
+    .btn:hover { transform: translateY(-2px); box-shadow: 0 4px 24px rgba(0,212,170,0.3); }
+    .footer { position: fixed; bottom: 20px; left: 0; right: 0; text-align: center; }
+    .footer a { color: var(--text-dim); text-decoration: none; font-size: 13px; font-weight: 500; }
+    .footer a:hover { color: var(--primary); }
+  </style>
+</head>
+<body>
+  <div class="glow"></div>
+  <div class="content">
+    <div class="icon">🐼</div>
+    <div class="code">404</div>
+    <h1 class="title">Halaman Tidak Ditemukan</h1>
+    <p class="desc">Sepertinya kamu tersesat di jaringan. Halaman yang kamu cari tidak ada atau sudah dipindahkan.</p>
+    <a href="/" class="btn">← Kembali ke Beranda</a>
+  </div>
+  <div class="footer">
+    <a href="/">NMSLEX Documentation</a>
+  </div>
+</body>
+</html>
