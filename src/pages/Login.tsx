@@ -12,8 +12,10 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [resetMode, setResetMode] = useState(false);
   const [resetSent, setResetSent] = useState(false);
+  const [showHealth, setShowHealth] = useState(false);
   const { signIn, resetPassword } = useAuth();
   const navigate = useNavigate();
+  const { health, loading: healthLoading } = useHealthCheck(30000);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
