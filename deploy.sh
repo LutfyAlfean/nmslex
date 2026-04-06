@@ -508,6 +508,8 @@ SURICATAEOF
   sed -i '/^node\.name:/d' "$ELASTICSEARCH_CONFIG"
   sed -i '/^network\.host:/d' "$ELASTICSEARCH_CONFIG"
   sed -i '/^discovery\.type:/d' "$ELASTICSEARCH_CONFIG"
+  sed -i '/^cluster\.initial_master_nodes:/d' "$ELASTICSEARCH_CONFIG"
+  sed -i '/^discovery\.seed_hosts:/d' "$ELASTICSEARCH_CONFIG"
   sed -i '/^xpack\.security\.enabled:/d' "$ELASTICSEARCH_CONFIG"
 
   cat >> "$ELASTICSEARCH_CONFIG" << 'ESEOF'
@@ -1016,6 +1018,7 @@ sync_admin_credentials() {
 generate_admin_credentials() {
   ADMIN_EMAIL="adminlex@nmslex.com"
   ADMIN_PASSWORD=$(openssl rand -base64 16 | tr -d '=/+' | head -c 16)
+  ADMIN_PASSWORD_HASH=$(hash_secret_value "$ADMIN_PASSWORD")
 
   echo ""
   echo -e "  ${YELLOW}┌──────────────────────────────────────────┐${NC}"
@@ -1029,9 +1032,9 @@ generate_admin_credentials() {
   echo -e "  ${YELLOW}└──────────────────────────────────────────┘${NC}"
 
   echo "ADMIN_EMAIL=${ADMIN_EMAIL}" > ${NMSLEX_CONF}/admin.credentials
-  echo "ADMIN_PASSWORD=${ADMIN_PASSWORD}" >> ${NMSLEX_CONF}/admin.credentials
+  echo "ADMIN_PASSWORD_HASH=${ADMIN_PASSWORD_HASH}" >> ${NMSLEX_CONF}/admin.credentials
   chmod 600 ${NMSLEX_CONF}/admin.credentials
-  log_ok "Credentials saved (root only): ${NMSLEX_CONF}/admin.credentials"
+  log_ok "Credentials saved as hash (root only): ${NMSLEX_CONF}/admin.credentials"
 
   if ! sync_admin_credentials; then
     log_warn "Login awal bisa gagal sampai kredensial backend berhasil disinkronkan"
