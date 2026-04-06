@@ -19,7 +19,7 @@
     "description": "Open-source Network Management System with Suricata IDS, Elasticsearch, and interactive monitoring dashboard",
     "author": { "@type": "Person", "name": "Muhammad Lutfi Alfian" },
     "license": "MIT",
-    "softwareVersion": "2.2.0"
+    "softwareVersion": "2.3.0"
   }
   </script>
 </head>
@@ -78,7 +78,7 @@
       </div>
       <div class="hero-stats">
         <div class="hero-stat">
-          <span class="hero-stat-value">v2.2</span>
+          <span class="hero-stat-value">v2.3</span>
           <span class="hero-stat-label">Latest Version</span>
         </div>
         <div class="hero-stat">
@@ -189,9 +189,14 @@
           <p>Cek status semua service dari CLI (<code>--status</code>) atau dashboard. Auto-restart service yang mati dengan fix otomatis.</p>
         </div>
         <div class="feature-card">
-          <div class="feature-icon">🔐</div>
-          <h3>Credential Hashing</h3>
-          <p>Password admin di-hash SHA-256. Login page menampilkan status backend services sebelum masuk.</p>
+          <div class="feature-icon">🔀</div>
+          <h3>Version Compatibility</h3>
+          <p>Validasi otomatis versi Elasticsearch & Kibana sebelum install. Deploy berhenti jika major.minor mismatch.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🔧</div>
+          <h3>Kibana Auto-Fix</h3>
+          <p>Sanitasi environment Node.js (NODE_OPTIONS, NODE_PATH) yang bentrok dengan bundled Node.js Kibana.</p>
         </div>
       </div>
     </div>
@@ -362,7 +367,7 @@ cd nmslex</code></pre>
             <h3>Jalankan Deploy Script</h3>
             <pre><code>chmod +x deploy.sh
 sudo ./deploy.sh</code></pre>
-            <p class="step-note">Script akan otomatis install semua dependencies, build dashboard, dan start services.</p>
+            <p class="step-note">Script akan otomatis install semua dependencies, validasi kompatibilitas versi, build dashboard, dan start services.</p>
           </div>
         </div>
         <div class="step">
@@ -380,7 +385,7 @@ sudo ./deploy.sh</code></pre>
         <div class="cmd-grid">
           <div class="cmd-card">
             <code>sudo ./deploy.sh --status</code>
-            <span>Cek status semua service + auto-restart</span>
+            <span>Cek status semua service + auto-restart + auto-fix</span>
           </div>
           <div class="cmd-card">
             <code>sudo ./deploy.sh --rebuild</code>
@@ -398,19 +403,45 @@ sudo ./deploy.sh</code></pre>
             <code>sudo ./deploy.sh --interface ens33</code>
             <span>Deploy dengan interface custom</span>
           </div>
+          <div class="cmd-card">
+            <code>git pull && sudo ./deploy.sh --rebuild</code>
+            <span>Update ke versi terbaru</span>
+          </div>
         </div>
 
+        <!-- Version Compatibility Info -->
         <div style="margin-top:2rem;padding:1.5rem;border-radius:12px;border:1px solid rgba(45,212,191,0.2);background:rgba(45,212,191,0.05);">
-          <h3 style="margin:0 0 0.75rem;font-size:1rem;color:#2dd4bf;">🔑 Mengganti Secret NMSLEX_HOST</h3>
+          <h3 style="margin:0 0 0.75rem;font-size:1rem;color:#2dd4bf;">🔀 Version Compatibility Check</h3>
           <p style="margin:0 0 0.5rem;font-size:0.875rem;color:rgba(255,255,255,0.7);">
-            Secret <code>NMSLEX_HOST</code> menentukan IP VM yang dicek oleh health-check. Untuk mengganti:
+            Deploy script v2.3 otomatis memeriksa kompatibilitas versi Elasticsearch dan Kibana:
           </p>
-          <ol style="margin:0;padding-left:1.25rem;font-size:0.875rem;color:rgba(255,255,255,0.7);">
-            <li>Buka <strong>Lovable Editor</strong> → minta AI: <em>"Update secret NMSLEX_HOST ke http://IP-BARU"</em></li>
-            <li>Atau buka <strong>Settings → Secrets</strong> di Lovable Cloud</li>
-          </ol>
-          <p style="margin:0.5rem 0 0;font-size:0.8rem;color:rgba(255,255,255,0.5);">
-            Format: <code>http://192.168.1.100</code> (tanpa trailing slash, tanpa port)
+          <ul style="margin:0;padding-left:1.25rem;font-size:0.875rem;color:rgba(255,255,255,0.7);">
+            <li>Cek versi terinstall dan kandidat sebelum install</li>
+            <li>Bandingkan <strong>major.minor</strong> — deploy berhenti jika mismatch</li>
+            <li>Validasi ulang setelah install untuk konsistensi</li>
+          </ul>
+        </div>
+
+        <!-- Kibana Auto-Fix Info -->
+        <div style="margin-top:1rem;padding:1.5rem;border-radius:12px;border:1px solid rgba(251,191,36,0.2);background:rgba(251,191,36,0.05);">
+          <h3 style="margin:0 0 0.75rem;font-size:1rem;color:#fbbf24;">🔧 Kibana Auto-Fix</h3>
+          <p style="margin:0 0 0.5rem;font-size:0.875rem;color:rgba(255,255,255,0.7);">
+            Jika Kibana gagal start karena konflik Node.js environment, deploy script otomatis:
+          </p>
+          <ul style="margin:0;padding-left:1.25rem;font-size:0.875rem;color:rgba(255,255,255,0.7);">
+            <li>Membuat systemd override untuk Kibana</li>
+            <li>Menghapus <code>NODE_OPTIONS</code> dan <code>NODE_PATH</code> yang bentrok</li>
+            <li>Fix diterapkan saat install dan saat <code>--status</code> auto-restart</li>
+          </ul>
+        </div>
+
+        <!-- Security Info -->
+        <div style="margin-top:1rem;padding:1.5rem;border-radius:12px;border:1px solid rgba(34,197,94,0.2);background:rgba(34,197,94,0.05);">
+          <h3 style="margin:0 0 0.75rem;font-size:1rem;color:#22c55e;">🔒 Keamanan Repository</h3>
+          <p style="margin:0;font-size:0.875rem;color:rgba(255,255,255,0.7);">
+            Repository ini <strong>aman untuk di-clone</strong>. Tidak ada API key, secret, atau password yang di-hardcode.
+            Credentials admin di-generate saat deploy dan di-hash SHA-256 (root-only).
+            Folder <code>supabase/functions/</code> berisi kode untuk fitur hosted — tidak diperlukan untuk deployment self-hosted.
           </p>
         </div>
       </div>
@@ -496,7 +527,7 @@ sudo /opt/nmslex-agent/bin/nmslex-agent test-connection</code></pre>
       </div>
       <div class="footer-bottom">
         <p>© 2026 Muhammad Lutfi Alfian. All rights reserved.</p>
-        <p>MIT License</p>
+        <p>MIT License • v2.3.0</p>
       </div>
     </div>
   </footer>
