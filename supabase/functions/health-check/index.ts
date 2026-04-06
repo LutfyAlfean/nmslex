@@ -10,6 +10,42 @@ interface ServiceHealth {
   responseTime?: number;
 }
 
+function isPreviewHost(hostname: string) {
+  return hostname === 'localhost'
+    || hostname === '127.0.0.1'
+    || hostname.endsWith('.lovable.app')
+    || hostname.endsWith('.lovableproject.com');
+}
+
+function normalizeBaseUrl(value: string | null) {
+  if (!value) return null;
+
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  const withProtocol = /^https?:\/\//i.test(trimmed) ? trimmed : `http://${trimmed}`;
+
+  try {
+    const url = new URL(withProtocol);
+    if (isPreviewHost(url.hostname)) return null;
+    return `${url.protocol}//${url.hostname}`;
+  } catch {
+    return null;
+  }
+}
+
+function resolveTargetHost(req: Request) {
+  const secretHost = normalizeBaseUrl(Deno.env.get('NMSLEX_HOST'));
+  const originHost = normalizeBaseUrl(req.headers.get('origin'));
+  const refererHost = normalizeBaseUrl(req.headers.get('referer'));
+
+  if (originHost) return { host: originHost, source: 'origin' };
+  if (refererHost) return { host: refererHost, source: 'referer' };
+  if (secretHost) return { host: secretHost, source: 'secret' };
+
+  return { host: null, source: 'unresolved' };
+}
+
 async function checkEndpoint(url: string, timeoutMs = 5000): Promise<{ ok: boolean; status: number; responseTime: number; body?: string }> {
   const start = Date.now();
   try {
@@ -29,8 +65,28 @@ Deno.serve(async (req) => {
     return new Response('ok', { headers: corsHeaders });
   }
 
-  // The NMSLEX_HOST should be set as a secret pointing to the VM IP/hostname
-  const nmslexHost = Deno.env.get('NMSLEX_HOST') || 'http://localhost';
+  const { host: nmslexHost, source } = resolveTargetHost(req);
+
+  if (!nmslexHost) {
+    const services: ServiceHealth[] = [
+      { name: 'Elasticsearch', status: 'unknown', message: 'Self-hosted target belum terdeteksi' },
+      { name: 'Kibana', status: 'unknown', message: 'Self-hosted target belum terdeteksi' },
+      { name: 'Suricata IDS/IPS', status: 'unknown', message: 'Self-hosted target belum terdeteksi' },
+      { name: 'NMSLEX Dashboard', status: 'unknown', message: 'Self-hosted target belum terdeteksi' },
+      { name: 'Filebeat', status: 'unknown', message: 'Self-hosted target belum terdeteksi' },
+    ];
+
+    return new Response(JSON.stringify({
+      overall: 'partial',
+      services,
+      checkedAt: new Date().toISOString(),
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 200,
+    });
+  }
+
+  console.log(`Health check target resolved from ${source}: ${nmslexHost}`);
 
   const services: ServiceHealth[] = [];
 
