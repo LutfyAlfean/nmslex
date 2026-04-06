@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-2.1.0-cyan?style=flat-square" />
+  <img src="https://img.shields.io/badge/version-2.2.0-cyan?style=flat-square" />
   <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" />
   <img src="https://img.shields.io/badge/node-18%2B-blue?style=flat-square" />
   <img src="https://img.shields.io/badge/platform-Linux-orange?style=flat-square" />
@@ -40,12 +40,14 @@
 | 📋 **Log Explorer** | Pencarian & analisis log terpusat |
 | 🖥️ **Agent Management** | Kelola semua VM/host + detail metrics |
 | 🌐 **Network Topology** | Visualisasi topologi jaringan (drag & drop) |
-| 🔐 **Authentication** | Login dengan auto-generated credentials |
+| 🔐 **Authentication** | Login dengan auto-generated credentials (hashed) |
 | 📱 **Telegram Bot** | Notifikasi realtime via Telegram |
 | 👥 **User Management** | Kelola akun admin, operator, dan viewer |
 | 📄 **PDF Reporting** | Export laporan profesional |
 | 🔔 **Alert Notifications** | Sound alert & badge counter realtime |
 | ⚙️ **Konfigurasi Terpusat** | Pengaturan semua komponen dari satu tempat |
+| 🏥 **Health Check** | Cek status semua service dari CLI & dashboard |
+| 🔄 **Auto-Restart** | Otomatis restart service yang mati via `--status` |
 
 ---
 
@@ -120,8 +122,8 @@ Saat deploy selesai, script akan menampilkan **credentials default** yang perlu 
 ## 🔧 Management
 
 ```bash
-# Status
-sudo systemctl status nmslex-dashboard
+# Cek status semua service (dengan auto-restart jika ada yang mati)
+sudo ./deploy.sh --status
 
 # Rebuild setelah perubahan kode
 sudo ./deploy.sh --rebuild
@@ -136,6 +138,17 @@ sudo ./deploy.sh --uninstall
 sudo ./deploy.sh --interface ens33 --port 8080
 ```
 
+### Health Check (`--status`)
+
+Perintah `--status` akan:
+- ✅ Cek status semua systemd service (elasticsearch, kibana, suricata, filebeat, nmslex-*)
+- ✅ Tampilkan memory usage dan uptime setiap service
+- ✅ Tampilkan **log error** jika ada service yang mati
+- ✅ Cek port listening (9200, 5601, 7356)
+- ✅ Cek Elasticsearch cluster health
+- ✅ **Auto-restart** service yang mati (dengan konfirmasi)
+- ✅ Fix otomatis masalah umum ES (vm.max_map_count, single-node config)
+
 ---
 
 ## 🔒 Environment & Security
@@ -144,8 +157,16 @@ NMSLEX menggunakan konfigurasi lokal — **tidak ada** API key atau secret yang 
 
 - File `.env.example` disediakan sebagai template
 - Saat deploy, `.env` di-generate otomatis oleh `deploy.sh`
-- Credentials admin di-generate random dan disimpan di `/etc/nmslex/admin.credentials` (root-only)
+- Credentials admin di-**hash** (SHA-256) dan disimpan di `/etc/nmslex/admin.credentials` (root-only)
+- Password hanya ditampilkan **sekali** saat deploy — simpan segera
 - **Jangan commit file `.env` ke repository**
+
+### Login Page Health Indicator
+
+Halaman login menampilkan **status backend services** secara real-time:
+- Indikator hijau/merah di bawah form login
+- Bisa di-expand untuk melihat detail setiap service
+- Membantu debug jika dashboard blank setelah login
 
 ---
 
