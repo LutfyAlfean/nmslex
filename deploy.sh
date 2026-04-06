@@ -115,6 +115,8 @@ show_usage() {
   echo -e "    ${RED}--reset${NC}     Reset all config to defaults (keeps installation)"
   echo -e "    ${RED}--uninstall${NC}  Complete removal of NMSLEX and all components"
   echo ""
+  echo -e "    ${CYAN}--status${NC}    Check status of all services"
+  echo ""
   echo -e "  ${WHITE}${BOLD}Options:${NC}"
   echo -e "    ${CYAN}--interface${NC} <iface>  Network interface (default: eth0)"
   echo -e "    ${CYAN}--port${NC} <port>        Dashboard port (default: 7356)"
