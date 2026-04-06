@@ -620,19 +620,59 @@ EOF
   cat > ${NMSLEX_DIR}/bin/nmslex-manager.sh << 'MGREOF'
 #!/bin/bash
 LOG_FILE="/var/log/nmslex/manager.log"
+MAX_LOG_SIZE=10485760  # 10MB
+RETRY_INTERVAL=300     # 5 minutes cooldown after failed restart
+declare -A LAST_RESTART_ATTEMPT
+
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOG_FILE"; }
-log "NMSLEX Manager started"
+
+rotate_log() {
+  if [ -f "$LOG_FILE" ]; then
+    local size=$(stat -c%s "$LOG_FILE" 2>/dev/null || echo 0)
+    if [ "$size" -gt "$MAX_LOG_SIZE" ]; then
+      mv "$LOG_FILE" "${LOG_FILE}.old"
+      log "Log rotated"
+    fi
+  fi
+}
+
+can_retry() {
+  local svc=$1
+  local now=$(date +%s)
+  local last=${LAST_RESTART_ATTEMPT[$svc]:-0}
+  [ $((now - last)) -ge $RETRY_INTERVAL ]
+}
+
+log "NMSLEX Manager started (v2.1)"
+log "[INFO] Retry cooldown: ${RETRY_INTERVAL}s per service"
+
 while true; do
-  for svc in suricata elasticsearch kibana filebeat; do
+  rotate_log
+
+  for svc in elasticsearch suricata kibana filebeat; do
     if systemctl is-active --quiet $svc; then
-      log "[OK] $svc is running"
+      : # Service OK, no log spam
     else
-      log "[WARN] $svc is not running, attempting restart..."
-      systemctl restart $svc
-      log "[INFO] $svc restart triggered"
+      if can_retry $svc; then
+        log "[WARN] $svc is down, attempting restart..."
+        if systemctl restart $svc 2>/dev/null; then
+          sleep 5
+          if systemctl is-active --quiet $svc; then
+            log "[OK] $svc restarted successfully"
+            LAST_RESTART_ATTEMPT[$svc]=0
+          else
+            log "[ERROR] $svc failed to start — next retry in ${RETRY_INTERVAL}s"
+            log "[HINT] Check: journalctl -xeu $svc --no-pager -n 20"
+            LAST_RESTART_ATTEMPT[$svc]=$(date +%s)
+          fi
+        else
+          log "[ERROR] $svc restart command failed — next retry in ${RETRY_INTERVAL}s"
+          LAST_RESTART_ATTEMPT[$svc]=$(date +%s)
+        fi
+      fi
     fi
   done
-  log "[INFO] Checking agent heartbeats..."
+
   sleep 30
 done
 MGREOF
