@@ -20,6 +20,38 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const { action, ...payload } = body;
 
+    // Reset admin password (no auth required, but must be existing admin email)
+    if (action === "reset_admin_password") {
+      const { email, password } = payload;
+      if (!email || !password) {
+        return new Response(JSON.stringify({ error: "Missing email or password" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      // Verify the email belongs to an admin
+      const { data: profile } = await adminClient.from("profiles").select("user_id").eq("email", email).maybeSingle();
+      if (!profile) {
+        return new Response(JSON.stringify({ error: "User not found" }), {
+          status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const { data: isAdmin } = await adminClient.from("user_roles").select("id").eq("user_id", profile.user_id).eq("role", "admin").maybeSingle();
+      if (!isAdmin) {
+        return new Response(JSON.stringify({ error: "Only admin passwords can be reset this way" }), {
+          status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const { error: updateError } = await adminClient.auth.admin.updateUserById(profile.user_id, { password });
+      if (updateError) {
+        return new Response(JSON.stringify({ error: updateError.message }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Bootstrap: create first admin if no admins exist
     if (action === "bootstrap_admin") {
       const { data: existingAdmins } = await adminClient
