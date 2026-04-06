@@ -1,8 +1,4 @@
 {
-  "rootDirectory": "docs-site",
-  "outputDirectory": ".",
-  "buildCommand": null,
-  "framework": null,
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
   ],
