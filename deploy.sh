@@ -541,7 +541,7 @@ FBEOF
   cp -r . ${NMSLEX_DIR}/dashboard/
   cd ${NMSLEX_DIR}/dashboard
 
-  (npm install --production 2>/dev/null || npm install 2>&1 > /dev/null) &
+  (npm install 2>&1 > /dev/null) &
   spinner $! "Installing node modules..."
 
   (npm run build 2>&1 > /dev/null) &
