@@ -1057,6 +1057,102 @@ generate_admin_credentials() {
 }
 
 # ═══════════════════════════════════════
+# Status Check (--status)
+# ═══════════════════════════════════════
+do_status() {
+  show_banner
+  echo -e "  ${WHITE}${BOLD}🔍 NMSLEX Service Health Check${NC}"
+  echo ""
+
+  local services=("elasticsearch" "kibana" "suricata" "filebeat" "nmslex-dashboard" "nmslex-manager")
+  local all_ok=true
+
+  for svc in "${services[@]}"; do
+    if systemctl is-active --quiet "$svc" 2>/dev/null; then
+      local uptime=$(systemctl show "$svc" --property=ActiveEnterTimestamp --value 2>/dev/null)
+      local mem=$(systemctl show "$svc" --property=MemoryCurrent --value 2>/dev/null)
+      local mem_mb=""
+      if [[ "$mem" =~ ^[0-9]+$ ]] && [ "$mem" -gt 0 ]; then
+        mem_mb=" ($(( mem / 1024 / 1024 ))MB)"
+      fi
+      echo -e "  ${GREEN}✔${NC} ${WHITE}${svc}${NC} ${GREEN}running${NC}${DIM}${mem_mb}${NC}"
+      echo -e "    ${DIM}since: ${uptime}${NC}"
+    elif systemctl is-enabled --quiet "$svc" 2>/dev/null; then
+      all_ok=false
+      echo -e "  ${RED}✘${NC} ${WHITE}${svc}${NC} ${RED}stopped / failed${NC}"
+      echo -e "    ${DIM}─── Recent logs ───${NC}"
+      journalctl -u "$svc" --no-pager -n 15 --since "1 hour ago" 2>/dev/null | while IFS= read -r line; do
+        if echo "$line" | grep -qiE "error|fatal|fail|exception"; then
+          echo -e "    ${RED}${line}${NC}"
+        else
+          echo -e "    ${DIM}${line}${NC}"
+        fi
+      done
+      echo -e "    ${DIM}───────────────────${NC}"
+    else
+      echo -e "  ${YELLOW}─${NC} ${WHITE}${svc}${NC} ${YELLOW}not installed${NC}"
+    fi
+  done
+
+  echo ""
+
+  # Port checks
+  echo -e "  ${WHITE}${BOLD}🌐 Port Status${NC}"
+  local ports=("9200:Elasticsearch" "5601:Kibana" "7356:Dashboard")
+  for entry in "${ports[@]}"; do
+    local port="${entry%%:*}"
+    local name="${entry##*:}"
+    if ss -tlnp | grep -q ":${port} "; then
+      echo -e "  ${GREEN}✔${NC} ${name} port ${CYAN}${port}${NC} ${GREEN}listening${NC}"
+    else
+      echo -e "  ${RED}✘${NC} ${name} port ${CYAN}${port}${NC} ${RED}not listening${NC}"
+      all_ok=false
+    fi
+  done
+
+  echo ""
+
+  # Elasticsearch cluster health
+  local es_health
+  es_health=$(curl -s --max-time 5 "http://localhost:9200/_cluster/health" 2>/dev/null)
+  if [ $? -eq 0 ] && [ -n "$es_health" ]; then
+    local status=$(echo "$es_health" | grep -o '"status":"[^"]*"' | cut -d'"' -f4)
+    local num_nodes=$(echo "$es_health" | grep -o '"number_of_nodes":[0-9]*' | cut -d: -f2)
+    case "$status" in
+      green)  echo -e "  ${GREEN}✔${NC} Elasticsearch cluster: ${GREEN}${status}${NC} (${num_nodes} nodes)" ;;
+      yellow) echo -e "  ${YELLOW}⚠${NC} Elasticsearch cluster: ${YELLOW}${status}${NC} (${num_nodes} nodes)" ;;
+      red)    echo -e "  ${RED}✘${NC} Elasticsearch cluster: ${RED}${status}${NC} (${num_nodes} nodes)"; all_ok=false ;;
+    esac
+  else
+    echo -e "  ${RED}✘${NC} Elasticsearch API ${RED}not responding${NC}"
+    all_ok=false
+  fi
+
+  # Suricata stats
+  if [ -f /var/log/suricata/stats.log ]; then
+    local last_stat=$(tail -1 /var/log/suricata/stats.log 2>/dev/null)
+    echo -e "  ${DIM}Suricata last stat: ${last_stat}${NC}"
+  fi
+
+  echo ""
+  if $all_ok; then
+    echo -e "  ${GREEN}┌──────────────────────────────────────────┐${NC}"
+    echo -e "  ${GREEN}│  ${WHITE}${BOLD}✔ All services healthy${NC}${GREEN}                    │${NC}"
+    echo -e "  ${GREEN}└──────────────────────────────────────────┘${NC}"
+  else
+    echo -e "  ${RED}┌──────────────────────────────────────────┐${NC}"
+    echo -e "  ${RED}│  ${WHITE}${BOLD}⚠ Some services need attention${NC}${RED}            │${NC}"
+    echo -e "  ${RED}└──────────────────────────────────────────┘${NC}"
+    echo ""
+    echo -e "  ${DIM}Tips:${NC}"
+    echo -e "  ${DIM}  sudo systemctl restart <service>${NC}"
+    echo -e "  ${DIM}  sudo journalctl -u <service> -f${NC}"
+    echo -e "  ${DIM}  sudo ./deploy.sh --reset${NC}"
+  fi
+  echo ""
+}
+
+# ═══════════════════════════════════════
 # Completion Summary
 # ═══════════════════════════════════════
 show_completion() {
