@@ -524,5 +524,5 @@ sudo systemctl daemon-reload
 ---
 
 <p align="center">
-  © 2026 Muhammad Lutfi Alfian — NMSLEX v2.3
+  © 2026 Muhammad Lutfi Alfian — NMSLEX v2.4
 </p>
