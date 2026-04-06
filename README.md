@@ -102,7 +102,7 @@
 
 ```bash
 # 1. Clone repository
-git clone https://github.com/lutfialf/nmslex.git
+git clone https://github.com/LutfyAlfean/nmslex.git
 cd nmslex
 
 # 2. Jalankan installer

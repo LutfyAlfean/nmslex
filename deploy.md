@@ -19,7 +19,7 @@ Tutorial lengkap cara deploy NMSLEX di VM lokal.
 ## Langkah 1: Clone Repository
 
 ```bash
-git clone https://github.com/lutfialf/nmslex.git
+git clone https://github.com/LutfyAlfean/nmslex.git
 cd nmslex
 ```
 
