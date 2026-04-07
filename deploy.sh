@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # NMSLEX - Network Management System
-# Advanced Deployment & Management Script v2.1
+# Advanced Deployment & Management Script v2.3
 # © 2026 Muhammad Lutfi Alfian
 #
 
