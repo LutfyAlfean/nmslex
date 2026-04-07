@@ -23,7 +23,10 @@ export function useHealthCheck(autoRefreshMs = 60000) {
   const [error, setError] = useState<string | null>(null);
 
   const check = useCallback(async () => {
-    setLoading(true);
+    const isInitialLoad = !health;
+    if (isInitialLoad) {
+      setLoading(true);
+    }
     setError(null);
     try {
       const { data, error: fnError } = await supabase.functions.invoke("health-check");
@@ -44,9 +47,11 @@ export function useHealthCheck(autoRefreshMs = 60000) {
         checkedAt: new Date().toISOString(),
       });
     } finally {
-      setLoading(false);
+      if (isInitialLoad) {
+        setLoading(false);
+      }
     }
-  }, []);
+  }, [health]);
 
   useEffect(() => {
     check();

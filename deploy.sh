@@ -876,6 +876,7 @@ ESEOF
   local kb_enc_key
   local kb_rpt_key
   local kb_sec_key
+  mkdir -p "${NMSLEX_CONF}"
   # Re-use existing keys if stored, otherwise generate new ones
   if [ -f "${NMSLEX_CONF}/kibana-keys" ]; then
     source "${NMSLEX_CONF}/kibana-keys"
