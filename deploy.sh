@@ -381,6 +381,144 @@ KBSVC
   log_ok "Kibana runtime environment sanitized"
 }
 
+ensure_kibana_encryption_keys() {
+  mkdir -p "${NMSLEX_CONF}"
+
+  local kb_key_file="${NMSLEX_CONF}/kibana-keys"
+  local kb_enc_key=""
+  local kb_rpt_key=""
+  local kb_sec_key=""
+
+  if [ -f "$kb_key_file" ]; then
+    source "$kb_key_file"
+    kb_enc_key="${KIBANA_ENC_KEY}"
+    kb_rpt_key="${KIBANA_RPT_KEY}"
+    kb_sec_key="${KIBANA_SEC_KEY}"
+  fi
+
+  [ -z "$kb_enc_key" ] && kb_enc_key=$(openssl rand -hex 16)
+  [ -z "$kb_rpt_key" ] && kb_rpt_key=$(openssl rand -hex 16)
+  [ -z "$kb_sec_key" ] && kb_sec_key=$(openssl rand -hex 16)
+
+  cat > "$kb_key_file" << KEYEOF
+KIBANA_ENC_KEY=${kb_enc_key}
+KIBANA_RPT_KEY=${kb_rpt_key}
+KIBANA_SEC_KEY=${kb_sec_key}
+KEYEOF
+  chmod 600 "$kb_key_file"
+}
+
+repair_kibana_config() {
+  local kibana_yml="/etc/kibana/kibana.yml"
+  [ -f "$kibana_yml" ] || return 0
+
+  ensure_kibana_encryption_keys
+  source "${NMSLEX_CONF}/kibana-keys"
+
+  sed -i '/^server\.host:/d' "$kibana_yml"
+  sed -i '/^server\.port:/d' "$kibana_yml"
+  sed -i '/^elasticsearch\.hosts:/d' "$kibana_yml"
+  sed -i '/^xpack\.security\.enabled:/d' "$kibana_yml"
+  sed -i '/^xpack\.encryptedSavedObjects\.encryptionKey:/d' "$kibana_yml"
+  sed -i '/^xpack\.reporting\.encryptionKey:/d' "$kibana_yml"
+  sed -i '/^xpack\.security\.encryptionKey:/d' "$kibana_yml"
+  sed -i '/^# NMSLEX Config$/d' "$kibana_yml"
+
+  cat >> "$kibana_yml" << KBEOF
+
+# NMSLEX Config
+server.host: "0.0.0.0"
+server.port: 5601
+elasticsearch.hosts: ["http://localhost:9200"]
+xpack.security.enabled: false
+xpack.encryptedSavedObjects.encryptionKey: "${KIBANA_ENC_KEY}"
+xpack.reporting.encryptionKey: "${KIBANA_RPT_KEY}"
+xpack.security.encryptionKey: "${KIBANA_SEC_KEY}"
+KBEOF
+}
+
+append_unique_service() {
+  local -n target_array=$1
+  local service_name="$2"
+
+  for existing in "${target_array[@]}"; do
+    [ "$existing" = "$service_name" ] && return 0
+  done
+
+  target_array+=("$service_name")
+}
+
+repair_service() {
+  local svc="$1"
+
+  echo -e "  ${CYAN}▸${NC} Auto-repair ${WHITE}${svc}${NC}..."
+  systemctl reset-failed "$svc" >/dev/null 2>&1 || true
+  systemctl enable "$svc" >/dev/null 2>&1 || true
+
+  case "$svc" in
+    elasticsearch)
+      sysctl -w vm.max_map_count=262144 >/dev/null 2>&1 || true
+      local es_yml="/etc/elasticsearch/elasticsearch.yml"
+      if [ -f "$es_yml" ]; then
+        sed -i '/^cluster\.initial_master_nodes/d' "$es_yml"
+        sed -i '/^discovery\.seed_hosts/d' "$es_yml"
+        if ! grep -q '^discovery.type:' "$es_yml"; then
+          echo 'discovery.type: single-node' >> "$es_yml"
+        fi
+      fi
+
+      systemctl restart elasticsearch >/dev/null 2>&1 || true
+      if wait_for_http "http://localhost:9200" 120 "Elasticsearch API" && systemctl is-active --quiet elasticsearch 2>/dev/null; then
+        log_ok "elasticsearch healthy after auto-repair"
+      else
+        log_warn "elasticsearch still failing after auto-repair"
+      fi
+      ;;
+    kibana)
+      wait_for_http "http://localhost:9200" 120 "Elasticsearch API" >/dev/null 2>&1 || true
+      repair_kibana_config
+      fix_kibana_runtime_env
+      systemctl restart kibana >/dev/null 2>&1 || true
+      if wait_for_port 5601 120 "Kibana port" && systemctl is-active --quiet kibana 2>/dev/null; then
+        log_ok "kibana healthy after auto-repair"
+      else
+        log_warn "kibana still failing after auto-repair"
+      fi
+      ;;
+    nmslex-dashboard)
+      local dashboard_port
+      dashboard_port=$(get_configured_dashboard_port)
+      systemctl restart nmslex-dashboard >/dev/null 2>&1 || true
+      if wait_for_port "$dashboard_port" 30 "Dashboard port" && systemctl is-active --quiet nmslex-dashboard 2>/dev/null; then
+        log_ok "nmslex-dashboard healthy after auto-repair"
+      else
+        log_warn "nmslex-dashboard still failing after auto-repair"
+        if [ ! -d "${NMSLEX_DIR}/dashboard/dist" ]; then
+          echo -e "    ${DIM}Hint: dashboard build tidak ditemukan, jalankan sudo ./deploy.sh --rebuild${NC}"
+        fi
+      fi
+      ;;
+    suricata|filebeat|nmslex-manager|nmslex-indexer)
+      systemctl restart "$svc" >/dev/null 2>&1 || true
+      sleep 3
+      if systemctl is-active --quiet "$svc" 2>/dev/null; then
+        log_ok "$svc healthy after auto-repair"
+      else
+        log_warn "$svc still failing after auto-repair"
+      fi
+      ;;
+    *)
+      systemctl restart "$svc" >/dev/null 2>&1 || true
+      sleep 3
+      if systemctl is-active --quiet "$svc" 2>/dev/null; then
+        log_ok "$svc healthy after auto-repair"
+      else
+        log_warn "$svc still failing after auto-repair"
+      fi
+      ;;
+  esac
+}
+
 # ═══════════════════════════════════════
 # UNINSTALL
 # ═══════════════════════════════════════
@@ -1498,6 +1636,7 @@ do_status() {
 
   local services=("elasticsearch" "kibana" "suricata" "filebeat" "nmslex-dashboard" "nmslex-manager")
   local all_ok=true
+  local repair_targets=()
 
   for svc in "${services[@]}"; do
     if systemctl is-active --quiet "$svc" 2>/dev/null; then
@@ -1511,6 +1650,7 @@ do_status() {
       echo -e "    ${DIM}since: ${uptime}${NC}"
     elif is_service_known "$svc"; then
       all_ok=false
+      append_unique_service repair_targets "$svc"
       echo -e "  ${RED}✘${NC} ${WHITE}${svc}${NC} ${RED}stopped / failed${NC}"
       echo -e "    ${DIM}─── Recent logs ───${NC}"
       journalctl -u "$svc" --no-pager -n 15 --since "1 hour ago" 2>/dev/null | while IFS= read -r line; do
@@ -1523,6 +1663,7 @@ do_status() {
       echo -e "    ${DIM}───────────────────${NC}"
     elif is_package_installed "$svc"; then
       all_ok=false
+      append_unique_service repair_targets "$svc"
       echo -e "  ${YELLOW}─${NC} ${WHITE}${svc}${NC} ${YELLOW}package installed but service unit missing${NC}"
     else
       all_ok=false
@@ -1545,6 +1686,11 @@ do_status() {
     else
       echo -e "  ${RED}✘${NC} ${name} port ${CYAN}${port}${NC} ${RED}not listening${NC}"
       all_ok=false
+      case "$name" in
+        Elasticsearch) append_unique_service repair_targets "elasticsearch" ;;
+        Kibana) append_unique_service repair_targets "kibana" ;;
+        Dashboard) append_unique_service repair_targets "nmslex-dashboard" ;;
+      esac
     fi
   done
 
@@ -1564,6 +1710,7 @@ do_status() {
   else
     echo -e "  ${RED}✘${NC} Elasticsearch API ${RED}not responding${NC}"
     all_ok=false
+    append_unique_service repair_targets "elasticsearch"
   fi
 
   # Suricata stats
@@ -1583,65 +1730,24 @@ do_status() {
     echo -e "  ${RED}└──────────────────────────────────────────┘${NC}"
     echo ""
 
-    # Collect failed services
-    local failed_svcs=()
-    for svc in "${services[@]}"; do
-      if systemctl is-enabled --quiet "$svc" 2>/dev/null && ! systemctl is-active --quiet "$svc" 2>/dev/null; then
-        failed_svcs+=("$svc")
-      fi
-    done
-
-    if [ ${#failed_svcs[@]} -gt 0 ]; then
+    if [ ${#repair_targets[@]} -gt 0 ]; then
+      echo -e "  ${CYAN}${BOLD}Auto-repair mode aktif:${NC} ${DIM}restart dan perbaikan dijalankan otomatis${NC}"
       echo ""
-      echo -e "  ${YELLOW}${BOLD}Auto-restart failed services? [y/N]${NC}"
-      read -r -p "  > " answer
-      if [[ "$answer" =~ ^[Yy]$ ]]; then
-        for svc in "${failed_svcs[@]}"; do
-          echo -e "  ${CYAN}▸${NC} Restarting ${WHITE}${svc}${NC}..."
-          systemctl reset-failed "$svc" >/dev/null 2>&1 || true
 
-          # Pre-restart fixes
-          if [ "$svc" = "elasticsearch" ]; then
-            # Fix common ES issues
-            sysctl -w vm.max_map_count=262144 >/dev/null 2>&1
-            local es_yml="/etc/elasticsearch/elasticsearch.yml"
-            if [ -f "$es_yml" ]; then
-              sed -i '/^cluster\.initial_master_nodes/d' "$es_yml"
-              sed -i '/^discovery\.seed_hosts/d' "$es_yml"
-              if ! grep -q "^discovery.type:" "$es_yml"; then
-                echo "discovery.type: single-node" >> "$es_yml"
-              fi
-            fi
-          fi
+      for svc in "${repair_targets[@]}"; do
+        repair_service "$svc"
+      done
 
-          if [ "$svc" = "kibana" ]; then
-            wait_for_http "http://localhost:9200" 120 "Elasticsearch API" >/dev/null 2>&1 || true
-            fix_kibana_runtime_env
-          fi
-
-          if [ "$svc" = "nmslex-dashboard" ]; then
-            local dashboard_port
-            dashboard_port=$(get_configured_dashboard_port)
-            systemctl restart "$svc" 2>/dev/null
-            wait_for_port "$dashboard_port" 30 "Dashboard port" >/dev/null 2>&1 || true
-          elif [ "$svc" = "kibana" ]; then
-            systemctl restart "$svc" 2>/dev/null
-            wait_for_port 5601 120 "Kibana port" >/dev/null 2>&1 || true
-          else
-            systemctl restart "$svc" 2>/dev/null
-          fi
-          sleep 3
-
-          if systemctl is-active --quiet "$svc" 2>/dev/null; then
-            echo -e "  ${GREEN}✔${NC} ${svc} ${GREEN}restarted successfully${NC}"
-          else
-            echo -e "  ${RED}✘${NC} ${svc} ${RED}still failing${NC}"
-            echo -e "    ${DIM}Check: sudo journalctl -u ${svc} -n 30 --no-pager${NC}"
-          fi
-        done
-        echo ""
-        echo -e "  ${DIM}Run ${CYAN}sudo ./deploy.sh --status${NC} ${DIM}again to verify${NC}"
-      fi
+      echo ""
+      echo -e "  ${WHITE}${BOLD}Post-repair verification${NC}"
+      for svc in "${repair_targets[@]}"; do
+        if systemctl is-active --quiet "$svc" 2>/dev/null; then
+          echo -e "  ${GREEN}✔${NC} ${WHITE}${svc}${NC} ${GREEN}running${NC}"
+        else
+          echo -e "  ${RED}✘${NC} ${WHITE}${svc}${NC} ${RED}still failing${NC}"
+          echo -e "    ${DIM}Check: sudo journalctl -u ${svc} -n 50 --no-pager${NC}"
+        fi
+      done
     else
       echo -e "  ${DIM}Tips:${NC}"
       echo -e "  ${DIM}  sudo systemctl restart <service>${NC}"
