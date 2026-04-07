@@ -1,12 +1,12 @@
 #!/bin/bash
 #
 # NMSLEX - Network Management System
-# Advanced Deployment & Management Script v2.1
+# Advanced Deployment & Management Script v2.3
 # © 2026 Muhammad Lutfi Alfian
 #
 
 # DO NOT use set -e with background processes
-NMSLEX_VERSION="2.1.0"
+NMSLEX_VERSION="2.3.0"
 NMSLEX_PORT=7356
 NMSLEX_DIR="/opt/nmslex"
 NMSLEX_CONF="/etc/nmslex"
