@@ -11,6 +11,7 @@ NMSLEX_PORT=7356
 NMSLEX_DIR="/opt/nmslex"
 NMSLEX_CONF="/etc/nmslex"
 NMSLEX_LOG="/var/log/nmslex"
+NMSLEX_REPAIR_LOG="${NMSLEX_LOG}/repair-summary.log"
 ELASTIC_VERSION="8.13.0"
 INTERFACE=""
 ACTION="install"
@@ -43,6 +44,23 @@ log_ok()    { echo -e "  ${GREEN}✔${NC} $1"; }
 log_warn()  { echo -e "  ${YELLOW}⚠${NC} $1"; }
 log_err()   { echo -e "  ${RED}✘${NC} $1"; }
 log_step()  { echo -e "\n${BOLD}${BLUE}━━━ $1 ━━━${NC}"; }
+
+ensure_repair_log() {
+  mkdir -p "${NMSLEX_LOG}" >/dev/null 2>&1 || true
+  touch "${NMSLEX_REPAIR_LOG}" >/dev/null 2>&1 || true
+}
+
+write_repair_log() {
+  local level="$1"
+  local message="$2"
+  ensure_repair_log
+  printf '[%s] [%s] %s\n' "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" "$level" "$message" >> "${NMSLEX_REPAIR_LOG}" 2>/dev/null || true
+}
+
+last_service_log_line() {
+  local svc="$1"
+  journalctl -u "$svc" -n 20 --no-pager 2>/dev/null | tail -n 1 | sed 's/^[[:space:]]*//'
+}
 
 # ═══════════════════════════════════════
 # Animated Spinner (with exit code check)
@@ -430,7 +448,6 @@ repair_kibana_config() {
 server.host: "0.0.0.0"
 server.port: 5601
 elasticsearch.hosts: ["http://localhost:9200"]
-xpack.security.enabled: false
 xpack.encryptedSavedObjects.encryptionKey: "${KIBANA_ENC_KEY}"
 xpack.reporting.encryptionKey: "${KIBANA_RPT_KEY}"
 xpack.security.encryptionKey: "${KIBANA_SEC_KEY}"
@@ -450,10 +467,13 @@ append_unique_service() {
 
 repair_service() {
   local svc="$1"
+  local last_error=""
 
   echo -e "  ${CYAN}▸${NC} Auto-repair ${WHITE}${svc}${NC}..."
+  write_repair_log "ACTION" "Auto-repair started for ${svc}"
   systemctl reset-failed "$svc" >/dev/null 2>&1 || true
   systemctl enable "$svc" >/dev/null 2>&1 || true
+  write_repair_log "ACTION" "Reset failed state and ensured ${svc} is enabled"
 
   case "$svc" in
     elasticsearch)
@@ -467,32 +487,46 @@ repair_service() {
         fi
       fi
 
+      write_repair_log "ACTION" "Applied Elasticsearch single-node safeguards and vm.max_map_count"
       systemctl restart elasticsearch >/dev/null 2>&1 || true
+      write_repair_log "ACTION" "Restarted elasticsearch"
       if wait_for_http "http://localhost:9200" 120 "Elasticsearch API" && systemctl is-active --quiet elasticsearch 2>/dev/null; then
         log_ok "elasticsearch healthy after auto-repair"
+        write_repair_log "RESULT" "elasticsearch healthy after auto-repair"
       else
         log_warn "elasticsearch still failing after auto-repair"
+        last_error=$(last_service_log_line "elasticsearch")
+        write_repair_log "RESULT" "elasticsearch still failing after auto-repair${last_error:+ :: ${last_error}}"
       fi
       ;;
     kibana)
       wait_for_http "http://localhost:9200" 120 "Elasticsearch API" >/dev/null 2>&1 || true
       repair_kibana_config
       fix_kibana_runtime_env
+      write_repair_log "ACTION" "Sanitized kibana.yml and runtime environment"
       systemctl restart kibana >/dev/null 2>&1 || true
+      write_repair_log "ACTION" "Restarted kibana"
       if wait_for_port 5601 120 "Kibana port" && systemctl is-active --quiet kibana 2>/dev/null; then
         log_ok "kibana healthy after auto-repair"
+        write_repair_log "RESULT" "kibana healthy after auto-repair"
       else
         log_warn "kibana still failing after auto-repair"
+        last_error=$(last_service_log_line "kibana")
+        write_repair_log "RESULT" "kibana still failing after auto-repair${last_error:+ :: ${last_error}}"
       fi
       ;;
     nmslex-dashboard)
       local dashboard_port
       dashboard_port=$(get_configured_dashboard_port)
       systemctl restart nmslex-dashboard >/dev/null 2>&1 || true
+      write_repair_log "ACTION" "Restarted nmslex-dashboard on port ${dashboard_port}"
       if wait_for_port "$dashboard_port" 30 "Dashboard port" && systemctl is-active --quiet nmslex-dashboard 2>/dev/null; then
         log_ok "nmslex-dashboard healthy after auto-repair"
+        write_repair_log "RESULT" "nmslex-dashboard healthy after auto-repair"
       else
         log_warn "nmslex-dashboard still failing after auto-repair"
+        last_error=$(last_service_log_line "nmslex-dashboard")
+        write_repair_log "RESULT" "nmslex-dashboard still failing after auto-repair${last_error:+ :: ${last_error}}"
         if [ ! -d "${NMSLEX_DIR}/dashboard/dist" ]; then
           echo -e "    ${DIM}Hint: dashboard build tidak ditemukan, jalankan sudo ./deploy.sh --rebuild${NC}"
         fi
@@ -500,20 +534,28 @@ repair_service() {
       ;;
     suricata|filebeat|nmslex-manager|nmslex-indexer)
       systemctl restart "$svc" >/dev/null 2>&1 || true
+      write_repair_log "ACTION" "Restarted ${svc}"
       sleep 3
       if systemctl is-active --quiet "$svc" 2>/dev/null; then
         log_ok "$svc healthy after auto-repair"
+        write_repair_log "RESULT" "${svc} healthy after auto-repair"
       else
         log_warn "$svc still failing after auto-repair"
+        last_error=$(last_service_log_line "$svc")
+        write_repair_log "RESULT" "${svc} still failing after auto-repair${last_error:+ :: ${last_error}}"
       fi
       ;;
     *)
       systemctl restart "$svc" >/dev/null 2>&1 || true
+      write_repair_log "ACTION" "Restarted ${svc}"
       sleep 3
       if systemctl is-active --quiet "$svc" 2>/dev/null; then
         log_ok "$svc healthy after auto-repair"
+        write_repair_log "RESULT" "${svc} healthy after auto-repair"
       else
         log_warn "$svc still failing after auto-repair"
+        last_error=$(last_service_log_line "$svc")
+        write_repair_log "RESULT" "${svc} still failing after auto-repair${last_error:+ :: ${last_error}}"
       fi
       ;;
   esac
@@ -1039,7 +1081,6 @@ KEYEOF
 server.host: "0.0.0.0"
 server.port: 5601
 elasticsearch.hosts: ["http://localhost:9200"]
-xpack.security.enabled: false
 xpack.encryptedSavedObjects.encryptionKey: "${kb_enc_key}"
 xpack.reporting.encryptionKey: "${kb_rpt_key}"
 xpack.security.encryptionKey: "${kb_sec_key}"
@@ -1731,6 +1772,8 @@ do_status() {
     echo ""
 
     if [ ${#repair_targets[@]} -gt 0 ]; then
+      ensure_repair_log
+      write_repair_log "RUN" "deploy.sh --status started; targets: ${repair_targets[*]}"
       echo -e "  ${CYAN}${BOLD}Auto-repair mode aktif:${NC} ${DIM}restart dan perbaikan dijalankan otomatis${NC}"
       echo ""
 
@@ -1743,11 +1786,16 @@ do_status() {
       for svc in "${repair_targets[@]}"; do
         if systemctl is-active --quiet "$svc" 2>/dev/null; then
           echo -e "  ${GREEN}✔${NC} ${WHITE}${svc}${NC} ${GREEN}running${NC}"
+          write_repair_log "VERIFY" "${svc} running during post-repair verification"
         else
           echo -e "  ${RED}✘${NC} ${WHITE}${svc}${NC} ${RED}still failing${NC}"
           echo -e "    ${DIM}Check: sudo journalctl -u ${svc} -n 50 --no-pager${NC}"
+          write_repair_log "VERIFY" "${svc} still failing during post-repair verification"
         fi
       done
+      write_repair_log "RUN" "deploy.sh --status completed"
+      echo ""
+      echo -e "  ${DIM}Repair summary log: ${NMSLEX_REPAIR_LOG}${NC}"
     else
       echo -e "  ${DIM}Tips:${NC}"
       echo -e "  ${DIM}  sudo systemctl restart <service>${NC}"

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 const HEALTH_POLL_MS = 10000; // 10s default polling
@@ -21,20 +21,23 @@ export function useHealthCheck(autoRefreshMs = 60000) {
   const [health, setHealth] = useState<HealthData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const hasLoadedRef = useRef(false);
 
-  const check = useCallback(async () => {
-    const isInitialLoad = !health;
-    if (isInitialLoad) {
+  const check = useCallback(async (showLoading = false) => {
+    const shouldShowLoading = showLoading || !hasLoadedRef.current;
+    if (shouldShowLoading) {
       setLoading(true);
     }
+
     setError(null);
+
     try {
       const { data, error: fnError } = await supabase.functions.invoke("health-check");
       if (fnError) throw fnError;
       setHealth(data as HealthData);
+      hasLoadedRef.current = true;
     } catch (e: any) {
       setError(e.message || "Health check failed");
-      // Fallback: show all services as unknown
       setHealth({
         overall: "degraded",
         services: [
@@ -46,20 +49,30 @@ export function useHealthCheck(autoRefreshMs = 60000) {
         ],
         checkedAt: new Date().toISOString(),
       });
+      hasLoadedRef.current = true;
     } finally {
-      if (isInitialLoad) {
+      if (shouldShowLoading) {
         setLoading(false);
       }
     }
-  }, [health]);
+  }, []);
 
   useEffect(() => {
     check();
+
     if (effectiveInterval > 0) {
-      const interval = setInterval(check, effectiveInterval);
+      const interval = setInterval(() => {
+        void check(false);
+      }, effectiveInterval);
+
       return () => clearInterval(interval);
     }
   }, [check, effectiveInterval]);
 
-  return { health, loading, error, refresh: check };
+  return {
+    health,
+    loading,
+    error,
+    refresh: () => check(true),
+  };
 }
